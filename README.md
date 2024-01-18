@@ -1,3 +1,2 @@
-# unzipr
+# unzipomatic
 
-Sane unzipping library for Node.js
