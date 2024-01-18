@@ -23,7 +23,7 @@
   "scripts": {
     "build": "tsc",
     "test": "vitest --coverage",
-    "test:ci": "npm run lint && npm run test:coverage",
+    "test:ci": "npm run lint && npm run test",
     "lint": "eslint . --ext .ts && prettier --check --log-level warn \"**/*.{json,md,ts}\"",
     "lint:fix": "eslint . --fix && prettier --write --log-level warn \"**/*.{json,md,ts}\"",
     "prepublishOnly": "npm run build"
