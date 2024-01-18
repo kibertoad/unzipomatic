@@ -28,8 +28,7 @@
     "lint:fix": "eslint . --fix && prettier --write --log-level warn \"**/*.{json,md,ts}\"",
     "prepublishOnly": "npm run build"
   },
-  "dependencies": {
-  },
+  "dependencies": {},
   "devDependencies": {
     "@types/node": "^20.11.5",
     "@typescript-eslint/eslint-plugin": "^6.19.0",

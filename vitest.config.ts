@@ -8,9 +8,7 @@ export default defineConfig({
     reporters: ['verbose'],
     coverage: {
       include: ['src/**/*.ts'],
-      exclude: [
-        'src/**/*.spec.ts',
-      ],
+      exclude: ['src/**/*.spec.ts'],
       reporter: ['text'],
       all: true,
       thresholds: {
