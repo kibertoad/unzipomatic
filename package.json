@@ -1,12 +1,12 @@
 {
-  "name": "unzipr",
+  "name": "unzipomatic",
   "version": "0.0.1",
-  "homepage": "https://github.com/kibertoad/unzipr",
+  "homepage": "https://github.com/kibertoad/unzipomatic",
   "description": "Modern unzipping library for Node.js",
   "author": "Igor Savin <kibertoad@gmail.com>",
   "repository": {
     "type": "git",
-    "url": "git://github.com/kibertoad/unzipr.git"
+    "url": "git://github.com/kibertoad/unzipomatic.git"
   },
   "license": "MIT",
   "files": [
