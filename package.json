@@ -1,0 +1,46 @@
+{
+  "name": "unzipr",
+  "version": "0.0.1",
+  "homepage": "https://github.com/kibertoad/unzipr",
+  "description": "Modern unzipping library for Node.js",
+  "author": "Igor Savin <kibertoad@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/kibertoad/unzipr.git"
+  },
+  "license": "MIT",
+  "files": [
+    "dist/**",
+    "LICENSE",
+    "README.md"
+  ],
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "commonjs",
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest --coverage",
+    "test:ci": "npm run lint && npm run test:coverage",
+    "lint": "eslint . --ext .ts && prettier --check --log-level warn \"**/*.{json,md,ts}\"",
+    "lint:fix": "eslint . --fix && prettier --write --log-level warn \"**/*.{json,md,ts}\"",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.5",
+    "@typescript-eslint/eslint-plugin": "^6.19.0",
+    "@typescript-eslint/parser": "^6.19.0",
+    "@vitest/coverage-v8": "^1.2.1",
+    "eslint": "^8.56.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-import": "^2.29.1",
+    "eslint-plugin-vitest": "^0.3.20",
+    "prettier": "^3.2.4",
+    "typescript": "^5.3.3",
+    "vitest": "^1.2.1"
+  }
+}
