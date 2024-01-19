@@ -1,0 +1,17 @@
+{
+  "name": "unzip-benchmarks",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "generate-data": "node generate-data.mjs",
+    "create-zip": "zip -q test.zip ./test-files/*"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@yarnpkg/libzip": "^3.0.0",
+    "yauzl": "^2.10.0",
+    "yauzl-promise": "^4.0.0"
+  }
+}
