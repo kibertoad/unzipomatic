@@ -14,14 +14,27 @@
     "LICENSE",
     "README.md"
   ],
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "type": "commonjs",
+  "main": "./dist/index.cjs",
+  "types": "./dist/index.d.ts",
+  "module": "./dist/index.mjs",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    }
+  },
   "publishConfig": {
     "access": "public"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc -p tsconfig.build.json --noEmit && tsup",
     "test": "vitest --coverage",
     "test:ci": "npm run lint && npm run test",
     "lint": "eslint . --ext .ts && prettier --check --log-level warn \"**/*.{json,md,ts}\"",
@@ -29,10 +42,11 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "fd-slicer": "^1.1.0",
-    "buffer-crc32": "~0.2.13"
+    "buffer-crc32": "~0.2.13",
+    "fd-slicer": "^1.1.0"
   },
   "devDependencies": {
+    "@types/buffer-crc32": "^0.2.4",
     "@types/node": "^20.11.5",
     "@typescript-eslint/eslint-plugin": "^6.19.0",
     "@typescript-eslint/parser": "^6.19.0",
@@ -42,6 +56,7 @@
     "eslint-plugin-import": "^2.29.1",
     "eslint-plugin-vitest": "^0.3.20",
     "prettier": "^3.2.4",
+    "tsup": "^8.0.1",
     "typescript": "^5.3.3",
     "vitest": "^1.2.1"
   }

@@ -89,7 +89,7 @@ export class RandomAccessReader extends EventEmitter {
     offset: number,
     length: number,
     position: number,
-    callback: (error?: Error, bytesRead: number) => void,
+    callback: (error: Error | null, bytesRead: number) => void,
   ) {
     const readStream = this.createReadStream({ start: position, end: position + length })
     const writeStream = new Writable()
@@ -100,7 +100,7 @@ export class RandomAccessReader extends EventEmitter {
       cb()
     }
     writeStream.on('finish', callback)
-    readStream.on('error', function (error?: Error) {
+    readStream.on('error', function (error: Error) {
       callback(error, 0)
     })
     readStream.pipe(writeStream)

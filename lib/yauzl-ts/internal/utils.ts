@@ -42,7 +42,7 @@ export function readAndAssertNoEof<TReader extends RandomAccessReader>(
       callback(null, Buffer.allocUnsafe(0))
     })
   }
-  reader.read(buffer, offset, length, position, (err: Error | undefined, bytesRead: number) => {
+  reader.read(buffer, offset, length, position, (err: Error | null, bytesRead: number) => {
     if (err) return callback(err)
     if (bytesRead < length) {
       return callback(new Error('unexpected EOF'))

@@ -17,6 +17,7 @@
     "strictNullChecks": true,
     "importHelpers": true,
     "baseUrl": ".",
+    "sourceRoot": "./lib",
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,

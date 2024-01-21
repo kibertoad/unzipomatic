@@ -133,12 +133,25 @@ export function fromBuffer(
   fromRandomAccessReader(reader, buffer.length, options, callback)
 }
 
-function fromRandomAccessReader<TReader extends RandomAccessReader>(
+export function fromRandomAccessReader<TReader extends RandomAccessReader>(
+  reader: TReader,
+  totalSize: number,
+  options: OpenOptions,
+  callback: OpenCallback,
+): void
+
+export function fromRandomAccessReader<TReader extends RandomAccessReader>(
+  reader: TReader,
+  totalSize: number,
+  callback: OpenCallback,
+): void
+
+export function fromRandomAccessReader<TReader extends RandomAccessReader>(
   reader: TReader,
   totalSize: number,
   optionsOrCallback: OpenOptions | OpenCallback,
   callbackOptional?: OpenCallback,
-) {
+): void {
   const [options, callback] = parseOptions(optionsOrCallback, callbackOptional)
   const decodeStrings = !!options.decodeStrings
 
