@@ -19,7 +19,7 @@ export function unzipToFilesystem(source: SourceType, targetDir: string, options
 /**
  * Used to iterate over multiple files in an archive
  */
-export function unzipToGenerator(source: SourceType, targetDir: string, options: UnzipOptions): Promise<FileGenerator>
+export function unzipToReadableGenerator(source: SourceType, options: UnzipOptions): Promise<FileGenerator>
 
 /**
  * Used to extract single-file archive
