@@ -22,7 +22,7 @@ Then, create the zip to be used during the benchmarks:
 npm run create-zip
 ```
 
-Finally, run the bench-* files:
+Finally, run the bench-\* files:
 
 ```bash
 node bench-yarnzip.mjs
