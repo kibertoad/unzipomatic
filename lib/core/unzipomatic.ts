@@ -12,7 +12,7 @@ export type TargetFileMetadata = {
 }
 
 // ToDo
-export type FileGenerator = {}
+export type FileGenerator = Generator<Entry, void, void>
 
 export function unzipToFilesystem(source: SourceType, targetDir: string, options: UnzipOptions): Promise<TargetFileMetadata>
 
