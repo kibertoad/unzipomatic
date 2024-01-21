@@ -1,6 +1,6 @@
 import EventEmitter from 'node:events'
-import { PassThrough, Writable } from 'stream';
-import type { Readable, Transform  } from 'stream'
+import { PassThrough, Writable } from 'stream'
+import type { Readable, Transform } from 'stream'
 
 import { AssertByteCountStream } from './internal/AssertByteCountStream'
 import { RefUnrefFilter } from './internal/RefUnrefFilter'

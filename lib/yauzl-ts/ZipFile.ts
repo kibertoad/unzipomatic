@@ -7,7 +7,13 @@ import crc32 from 'buffer-crc32'
 import { Entry } from './Entry'
 import type { RandomAccessReader } from './RandomAccessReader'
 import { AssertByteCountStream } from './internal/AssertByteCountStream'
-import { decodeBuffer, emitError, emitErrorAndAutoClose, readAndAssertNoEof, readUInt64LE } from './internal/utils'
+import {
+  decodeBuffer,
+  emitError,
+  emitErrorAndAutoClose,
+  readAndAssertNoEof,
+  readUInt64LE,
+} from './internal/utils'
 import { validateFileName } from './validations'
 
 export interface OpenReadStreamOptions {
@@ -201,11 +207,11 @@ export class ZipFile<TReader extends RandomAccessReader = RandomAccessReader> ex
             // 46+n+m - File comment
             entry.fileComment = this.decodeStrings
               ? decodeBuffer(
-                buffer,
-                fileCommentStart,
-                fileCommentStart + entry.fileCommentLength,
-                isUtf8,
-              )
+                  buffer,
+                  fileCommentStart,
+                  fileCommentStart + entry.fileCommentLength,
+                  isUtf8,
+                )
               : buffer.slice(fileCommentStart, fileCommentStart + entry.fileCommentLength)
             // compatibility hack for https://github.com/thejoshwolfe/yauzl/issues/47
             entry.comment = entry.fileComment
@@ -346,12 +352,9 @@ export class ZipFile<TReader extends RandomAccessReader = RandomAccessReader> ex
     entry: Entry,
     options: OpenReadStreamOptions,
     callback: OpenReadStreamCallback,
-  ): void;
+  ): void
 
-  openReadStream(
-    entry: Entry,
-    callback: OpenReadStreamCallback,
-  ): void;
+  openReadStream(entry: Entry, callback: OpenReadStreamCallback): void
 
   openReadStream(
     entry: Entry,
@@ -482,11 +485,11 @@ export class ZipFile<TReader extends RandomAccessReader = RandomAccessReader> ex
               return callback(
                 new Error(
                   'file data overflows file bounds: ' +
-                  fileDataStart +
-                  ' + ' +
-                  entry.compressedSize +
-                  ' > ' +
-                  this.fileSize,
+                    fileDataStart +
+                    ' + ' +
+                    entry.compressedSize +
+                    ' > ' +
+                    this.fileSize,
                 ),
               )
             }
@@ -499,9 +502,9 @@ export class ZipFile<TReader extends RandomAccessReader = RandomAccessReader> ex
           if (decompress) {
             let destroyed = false
             const inflateFilter = zlib.createInflateRaw()
-            readStream.on('error', function(err) {
+            readStream.on('error', function (err) {
               // setImmediate here because errors can be emitted during the first call to pipe()
-              setImmediate(function() {
+              setImmediate(function () {
                 if (!destroyed) inflateFilter.emit('error', err)
               })
             })
@@ -509,9 +512,9 @@ export class ZipFile<TReader extends RandomAccessReader = RandomAccessReader> ex
 
             if (this.validateEntrySizes) {
               endpointStream = new AssertByteCountStream(entry.uncompressedSize)
-              inflateFilter.on('error', function(err) {
+              inflateFilter.on('error', function (err) {
                 // forward zlib errors to the client-visible stream
-                setImmediate(function() {
+                setImmediate(function () {
                   if (!destroyed) endpointStream.emit('error', err)
                 })
               })
@@ -521,7 +524,7 @@ export class ZipFile<TReader extends RandomAccessReader = RandomAccessReader> ex
               endpointStream = inflateFilter
             }
             // this is part of yauzl's API, so implement this function on the client-visible stream
-            endpointStream.destroy = function() {
+            endpointStream.destroy = function () {
               destroyed = true
               if (inflateFilter !== endpointStream) inflateFilter.unpipe(endpointStream)
               readStream.unpipe(inflateFilter)

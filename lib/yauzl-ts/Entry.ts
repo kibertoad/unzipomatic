@@ -1,5 +1,7 @@
 import { dosDateTimeToDate } from './internal/utils'
 
+export type EntryExtraField = { id: number; data: Buffer }
+
 export class Entry {
   public lastModFileDate!: number
   public lastModFileTime!: number
@@ -17,7 +19,7 @@ export class Entry {
   public internalFileAttributes!: number
   public externalFileAttributes!: number
   public fileName!: string | Buffer
-  public extraFields!: { id: number, data: Buffer }[]
+  public extraFields!: EntryExtraField[]
   public fileComment!: string | Buffer
   public comment!: string | Buffer
 

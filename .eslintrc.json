@@ -36,7 +36,7 @@
           "requireLast": false
         },
         "singleline": {
-          "delimiter": "comma",
+          "delimiter": "semi",
           "requireLast": false
         }
       }
@@ -59,11 +59,7 @@
   },
   "overrides": [
     {
-      "files": [
-        "test/**/*",
-        "*.spec.ts",
-        "*.test.ts"
-      ],
+      "files": ["test/**/*", "*.spec.ts", "*.test.ts"],
       "rules": {
         "@typescript-eslint/no-empty-interface": "off",
         "@typescript-eslint/ban-ts-comment": "off",

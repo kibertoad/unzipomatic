@@ -1,4 +1,4 @@
-import type { TransformCallback } from 'stream';
+import type { TransformCallback } from 'stream'
 import { Transform } from 'stream'
 
 export class AssertByteCountStream extends Transform {
