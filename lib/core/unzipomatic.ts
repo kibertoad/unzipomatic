@@ -22,9 +22,14 @@ export function unzipToFilesystem(source: SourceType, targetDir: string, options
 export function unzipToReadableGenerator(source: SourceType, options: UnzipOptions): Promise<FileGenerator>
 
 /**
- * Used to extract single-file archive
+ * Used to extract a single-file archive
  */
 export function unzipToReadable(source: SourceType, options: UnzipOptions): Promise<Readable>
+
+/**
+ * Used to extract a single-file archive
+ */
+export function unzipToBuffer(source: SourceType, options: UnzipOptions): Promise<Buffer>
 
 // TBD
 // Do we need to support filters for extracting just a subset of files?
