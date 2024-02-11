@@ -1,11 +1,12 @@
-import {Readable} from "node:stream";
-import { fromBuffer } from '../yauzl-ts/inputProcessors'
-import { ZipFile } from '../yauzl-ts/ZipFile'
-import { RandomAccessReader } from '../yauzl-ts/RandomAccessReader'
-import { mkdir } from 'node:fs/promises'
 import { createWriteStream } from 'node:fs'
-import { resolve, join, dirname } from 'node:path'
-import { Entry } from '../yauzl-ts/Entry'
+import { mkdir } from 'node:fs/promises'
+import { join, dirname } from 'node:path'
+import type {Readable} from "node:stream";
+import { pipeline } from "node:stream/promises";
+
+import type { Entry } from '../yauzl-ts/Entry'
+import type { ZipFile } from '../yauzl-ts/ZipFile'
+import { fromBuffer } from '../yauzl-ts/inputProcessors'
 
 
 export type UnzipOptions = {
@@ -24,53 +25,62 @@ export type FileGenerator = Generator<Entry, void, void>
 
 export async function unzipToFilesystem(source: SourceType, targetDir: string, options: UnzipOptions): Promise<TargetFileMetadata> {
     if (!Buffer.isBuffer(source)) {
-        throw new Error('Only buffer is currently supported')
+        throw new Error('Only buffer is currently supported');
     }
 
-    const result = await new Promise(async (resolve, reject) => {
-        const zipfile = await new Promise<ZipFile<RandomAccessReader>>((resolve, reject) => {
-            fromBuffer(source, { lazyEntries: true }, (err, result) => {
-                if (err) {
-                    return reject(err)
-                }
-                return resolve(result!)
-            })
-        })
+    const fileWrites: Promise<any>[] = []; // Array to track file write promises
 
-        zipfile.readEntry();
-        zipfile.on('entry', async (entry: Entry) => {
-            // Directory file names end with '/'
+    const result = await new Promise(async (resolve, reject) => {
+        const zipfile  = await new Promise<ZipFile>((resolve, reject) => {
+            fromBuffer(source, { lazyEntries: true }, (err, result) => {
+                if (err) return reject(err);
+                resolve(result);
+            });
+        });
+
+        zipfile.on('entry', async (entry) => {
             if (/\/$/.test(entry.fileName)) {
                 // Directory: create if doesn't exist
-                const directoryPath = join(targetDir, entry.fileName)
-                await mkdir(directoryPath, { recursive: true })
+                const directoryPath = join(targetDir, entry.fileName);
+                await mkdir(directoryPath, { recursive: true });
                 zipfile.readEntry();
             } else {
                 // File: extract
-                zipfile.openReadStream(entry, { decrypt: entry.isEncrypted() ? false : null }, async (err, readStream) => {
-                    if (err) throw err;
+                zipfile.openReadStream(entry, { decrypt: entry.isEncrypted() ? true : undefined }, (err, readStream) => {
+                    if (err) {
+                        reject(err);
+                        return;
+                    }
                     const filePath = join(targetDir, entry.fileName);
-                    await mkdir(dirname(filePath), { recursive: true })
-                    readStream.pipe(createWriteStream(filePath));
+                    fileWrites.push((async () => {
+                        await mkdir(dirname(filePath), { recursive: true });
+                        await pipeline(readStream, createWriteStream(filePath)); // Use pipeline for proper error handling
+                    })());
+
                     readStream.on('end', () => {
                         zipfile.readEntry();
                     });
                 });
             }
-
         });
-        zipfile.on('end', () => {
-            resolve(undefined)
-        })
+
+        zipfile.on('end', async () => {
+            // Wait for all file writes to complete
+            await Promise.all(fileWrites);
+            resolve(undefined);
+        });
+
         zipfile.on('error', (err) => {
-            reject(err)
-        })
-    })
+            reject(err);
+        });
+
+        zipfile.readEntry();
+    });
 
     return {
-        fullPath: 'dummy',
-        fileSize: 444,
-    }
+        fullPath: 'dummy', // Adjust as needed
+        fileSize: 444, // Adjust as needed
+    };
 }
 
 /**
