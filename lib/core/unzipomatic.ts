@@ -26,37 +26,46 @@ export async function unzipToFilesystem(source: SourceType, targetDir: string, o
     if (!Buffer.isBuffer(source)) {
         throw new Error('Only buffer is currently supported')
     }
-    const zipfile = await new Promise<ZipFile<RandomAccessReader>>((resolve, reject) => {
-        fromBuffer(source, { lazyEntries: true},  (err, result) => {
-            if (err) {
-                return reject(err)
-            }
-            return resolve(result!)
-        })
-    })
 
-    zipfile.readEntry();
-    zipfile.on('entry', async (entry: Entry) => {
-        // Directory file names end with '/'
-        if (/\/$/.test(entry.fileName)) {
-            // Directory: create if doesn't exist
-            const directoryPath = join(targetDir, entry.fileName)
-            await mkdir(directoryPath, { recursive: true })
-            zipfile.readEntry();
-        } else {
-            // File: extract
-            zipfile.openReadStream(entry, { decrypt: false }, async (err, readStream) => {
-                if (err) throw err;
-                const filePath = join(targetDir, entry.fileName);
-                await mkdir(dirname(filePath), { recursive: true })
+    const result = await new Promise(async (resolve, reject) => {
+        const zipfile = await new Promise<ZipFile<RandomAccessReader>>((resolve, reject) => {
+            fromBuffer(source, { lazyEntries: true }, (err, result) => {
+                if (err) {
+                    return reject(err)
+                }
+                return resolve(result!)
+            })
+        })
+
+        zipfile.readEntry();
+        zipfile.on('entry', async (entry: Entry) => {
+            // Directory file names end with '/'
+            if (/\/$/.test(entry.fileName)) {
+                // Directory: create if doesn't exist
+                const directoryPath = join(targetDir, entry.fileName)
+                await mkdir(directoryPath, { recursive: true })
+                zipfile.readEntry();
+            } else {
+                // File: extract
+                zipfile.openReadStream(entry, { decrypt: entry.isEncrypted() ? false : null }, async (err, readStream) => {
+                    if (err) throw err;
+                    const filePath = join(targetDir, entry.fileName);
+                    await mkdir(dirname(filePath), { recursive: true })
                     readStream.pipe(createWriteStream(filePath));
                     readStream.on('end', () => {
                         zipfile.readEntry();
                     });
-            });
-        }
+                });
+            }
 
-    });
+        });
+        zipfile.on('end', () => {
+            resolve(undefined)
+        })
+        zipfile.on('error', (err) => {
+            reject(err)
+        })
+    })
 
     return {
         fullPath: 'dummy',
