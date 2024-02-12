@@ -33,7 +33,7 @@ export async function unzipToFilesystem(
 
   const fileWrites: Promise<void>[] = [] // Array to track file write promises
 
-const zipFileOrError = await new Promise<Error | ZipFile>((openResolve) => {
+  const zipFileOrError = await new Promise<Error | ZipFile>((openResolve) => {
     fromBuffer(source, { lazyEntries: true }, (err, result) => {
       if (err) {
         return openResolve(err)

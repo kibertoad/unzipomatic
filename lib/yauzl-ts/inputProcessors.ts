@@ -189,7 +189,7 @@ export function fromRandomAccessReader<TReader extends RandomAccessReader>(
       const diskNumber = eocdrBuffer.readUInt16LE(4)
       if (diskNumber !== 0) {
         return callback(
-          new Error('multi-disk zip files are not supported: found disk number: ' + diskNumber),
+          new Error(`multi-disk zip files are not supported: found disk number: ${diskNumber}`),
         )
       }
       // 6 - Disk where central directory starts
@@ -205,10 +205,7 @@ export function fromRandomAccessReader<TReader extends RandomAccessReader>(
       if (commentLength !== expectedCommentLength) {
         return callback(
           new Error(
-            'invalid comment length. expected: ' +
-              expectedCommentLength +
-              '. found: ' +
-              commentLength,
+            `invalid comment length. expected: ${expectedCommentLength}. found: ${commentLength}`,
           ),
         )
       }
