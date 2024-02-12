@@ -54,13 +54,12 @@ export function readAndAssertNoEof<TReader extends RandomAccessReader>(
 export function decodeBuffer(buffer: Buffer, start: number, end: number, isUtf8: boolean) {
   if (isUtf8) {
     return buffer.toString('utf8', start, end)
-  } else {
-    let result = ''
-    for (let i = start; i < end; i++) {
-      result += cp437[buffer[i]]
-    }
-    return result
   }
+  let result = ''
+  for (let i = start; i < end; i++) {
+    result += cp437[buffer[i]]
+  }
+  return result
 }
 
 export function readUInt64LE(buffer: Buffer, offset: number) {

@@ -116,7 +116,7 @@ export class ZipFile<TReader extends RandomAccessReader = RandomAccessReader> ex
           return emitErrorAndAutoClose(
             this,
             new Error(
-              'invalid central directory file header signature: 0x' + signature.toString(16),
+              `invalid central directory file header signature: 0x${signature.toString(16)}`,
             ),
           )
         }
@@ -321,11 +321,7 @@ export class ZipFile<TReader extends RandomAccessReader = RandomAccessReader> ex
                 expectedCompressedSize += 12
               }
               if (entry.compressedSize !== expectedCompressedSize) {
-                const msg =
-                  'compressed/uncompressed size mismatch for stored file: ' +
-                  entry.compressedSize +
-                  ' != ' +
-                  entry.uncompressedSize
+                const msg = `compressed/uncompressed size mismatch for stored file: ${entry.compressedSize} != ${entry.uncompressedSize}`
                 return emitErrorAndAutoClose(this, new Error(msg))
               }
             }
@@ -445,7 +441,7 @@ export class ZipFile<TReader extends RandomAccessReader = RandomAccessReader> ex
           const signature = buffer.readUInt32LE(0)
           if (signature !== 0x04034b50) {
             return callback(
-              new Error('invalid local file header signature: 0x' + signature.toString(16)),
+              new Error(`invalid local file header signature: 0x${signature.toString(16)}`),
             )
           }
           // all this should be redundant
@@ -473,7 +469,7 @@ export class ZipFile<TReader extends RandomAccessReader = RandomAccessReader> ex
             // 8 - The file is Deflated
             decompress = options.decompress != null ? options.decompress : true
           } else {
-            return callback(new Error('unsupported compression method: ' + entry.compressionMethod))
+            return callback(new Error(`unsupported compression method: ${entry.compressionMethod}`))
           }
           const fileDataStart = localFileHeaderEnd
           const fileDataEnd = fileDataStart + entry.compressedSize
@@ -484,12 +480,7 @@ export class ZipFile<TReader extends RandomAccessReader = RandomAccessReader> ex
             if (fileDataEnd > this.fileSize) {
               return callback(
                 new Error(
-                  'file data overflows file bounds: ' +
-                    fileDataStart +
-                    ' + ' +
-                    entry.compressedSize +
-                    ' > ' +
-                    this.fileSize,
+                  `file data overflows file bounds: ${fileDataStart} + ${entry.compressedSize} > ${this.fileSize}`,
                 ),
               )
             }

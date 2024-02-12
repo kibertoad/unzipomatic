@@ -14,11 +14,7 @@ export class AssertByteCountStream extends Transform {
   _transform(chunk: Buffer, encoding: BufferEncoding, cb: TransformCallback) {
     this.actualByteCount += chunk.length
     if (this.actualByteCount > this.expectedByteCount) {
-      const msg =
-        'too many bytes in the stream. expected ' +
-        this.expectedByteCount +
-        '. got at least ' +
-        this.actualByteCount
+      const msg = `too many bytes in the stream. expected ${this.expectedByteCount}. got at least ${this.actualByteCount}`
       return cb(new Error(msg))
     }
     cb(null, chunk)
@@ -26,11 +22,7 @@ export class AssertByteCountStream extends Transform {
 
   _flush(cb: TransformCallback) {
     if (this.actualByteCount < this.expectedByteCount) {
-      const msg =
-        'not enough bytes in the stream. expected ' +
-        this.expectedByteCount +
-        '. got only ' +
-        this.actualByteCount
+      const msg = `not enough bytes in the stream. expected ${this.expectedByteCount}. got only ${this.actualByteCount}`
       return cb(new Error(msg))
     }
 
