@@ -86,10 +86,10 @@ export function open(
 
   if (options.autoClose == null) options.autoClose = true
 
-  fs.open(path, 'r', function (err, fd) {
+  fs.open(path, 'r', (err, fd) => {
     if (err && typeof callback === 'function') return callback(err)
 
-    fromFd(fd, options, function (err, zipfile) {
+    fromFd(fd, options, (err, zipfile) => {
       if (err) fs.close(fd, defaultCallback)
       callback(err, zipfile)
     })
@@ -108,7 +108,7 @@ export function fromFd(
 
   if (options.autoClose == null) options.autoClose = false
 
-  fs.fstat(fd, function (err, stats) {
+  fs.fstat(fd, (err, stats) => {
     if (err) return callback(err)
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
     const reader = fd_slicer.createFromFd(fd, { autoClose: true })
@@ -247,7 +247,7 @@ export function fromRandomAccessReader<TReader extends RandomAccessReader>(
         0,
         zip64EocdlBuffer.length,
         zip64EocdlOffset,
-        function (err: Error | null) {
+        (err: Error | null) => {
           if (err) return callback(err)
 
           // 0 - zip64 end of central dir locator signature = 0x07064b50
@@ -267,7 +267,7 @@ export function fromRandomAccessReader<TReader extends RandomAccessReader>(
             0,
             zip64EocdrBuffer.length,
             zip64EocdrOffset,
-            function (err: Error | null) {
+            (err: Error | null) => {
               if (err) return callback(err)
 
               // 0 - zip64 end of central dir signature                           4 bytes  (0x06064b50)

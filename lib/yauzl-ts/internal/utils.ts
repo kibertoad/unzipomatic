@@ -38,7 +38,7 @@ export function readAndAssertNoEof<TReader extends RandomAccessReader>(
 ) {
   if (length === 0) {
     // fs.read will throw an out-of-bounds error if you try to read 0 bytes from a 0 byte file
-    return setImmediate(function () {
+    return setImmediate(() => {
       callback(null, Buffer.allocUnsafe(0))
     })
   }

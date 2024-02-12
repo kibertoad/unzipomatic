@@ -502,9 +502,9 @@ export class ZipFile<TReader extends RandomAccessReader = RandomAccessReader> ex
           if (decompress) {
             let destroyed = false
             const inflateFilter = zlib.createInflateRaw()
-            readStream.on('error', function (err) {
+            readStream.on('error', (err) => {
               // setImmediate here because errors can be emitted during the first call to pipe()
-              setImmediate(function () {
+              setImmediate(() => {
                 if (!destroyed) inflateFilter.emit('error', err)
               })
             })
@@ -512,9 +512,9 @@ export class ZipFile<TReader extends RandomAccessReader = RandomAccessReader> ex
 
             if (this.validateEntrySizes) {
               endpointStream = new AssertByteCountStream(entry.uncompressedSize)
-              inflateFilter.on('error', function (err) {
+              inflateFilter.on('error', (err) => {
                 // forward zlib errors to the client-visible stream
-                setImmediate(function () {
+                setImmediate(() => {
                   if (!destroyed) endpointStream.emit('error', err)
                 })
               })

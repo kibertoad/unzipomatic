@@ -37,8 +37,8 @@
     "build": "tsc -p tsconfig.build.json --noEmit && tsup",
     "test": "vitest --coverage",
     "test:ci": "npm run lint && npm run test",
-    "lint": "eslint . --ext .ts && prettier --check --log-level warn \"**/*.{json,md,ts}\"",
-    "lint:fix": "eslint . --fix && prettier --write --log-level warn \"**/*.{json,md,ts}\"",
+    "lint": "biome lint index.ts lib/core test biome.json",
+    "lint:fix": "biome check --apply index.ts lib/core test biome.json",
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
@@ -46,16 +46,17 @@
     "fd-slicer": "^1.1.0"
   },
   "devDependencies": {
+    "@biomejs/biome": "^1.5.3",
     "@types/buffer-crc32": "^0.2.4",
     "@types/node": "^20.11.5",
     "@typescript-eslint/eslint-plugin": "^6.19.0",
     "@typescript-eslint/parser": "^6.19.0",
     "@vitest/coverage-v8": "^1.2.1",
+    "cli-testlab": "^4.0.0",
     "eslint": "^8.56.0",
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-import": "^2.29.1",
     "eslint-plugin-vitest": "^0.3.20",
-    "prettier": "^3.2.4",
     "tsup": "^8.0.1",
     "typescript": "^5.3.3",
     "vitest": "^1.2.1"
