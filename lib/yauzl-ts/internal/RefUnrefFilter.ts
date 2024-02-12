@@ -1,8 +1,8 @@
 import { PassThrough } from 'node:stream'
 
-import type { RandomAccessReader } from '../RandomAccessReader'
+import type { IRandomAccessReader } from '../RandomAccessReader'
 
-export class RefUnrefFilter<TReader extends RandomAccessReader> extends PassThrough {
+export class RefUnrefFilter<TReader extends IRandomAccessReader> extends PassThrough {
   private readonly context: TReader
   private unreffedYet: boolean
 

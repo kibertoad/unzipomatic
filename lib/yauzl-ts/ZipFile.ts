@@ -5,15 +5,9 @@ import type { Transform } from 'stream'
 import crc32 from 'buffer-crc32'
 
 import { Entry } from './Entry'
-import type { RandomAccessReader } from './RandomAccessReader'
+import type { IRandomAccessReader } from './RandomAccessReader'
 import { AssertByteCountStream } from './internal/AssertByteCountStream'
-import {
-  decodeBuffer,
-  emitError,
-  emitErrorAndAutoClose,
-  readAndAssertNoEof,
-  readUInt64LE,
-} from './internal/utils'
+import { decodeBuffer, emitError, emitErrorAndAutoClose, readAndAssertNoEof, readUInt64LE } from './internal/utils'
 import { validateFileName } from './validations'
 
 export interface OpenReadStreamOptions {
@@ -25,14 +19,14 @@ export interface OpenReadStreamOptions {
 
 export type OpenReadStreamCallback = (err: Error | null, stream?: Transform) => void
 
-export class ZipFile<TReader extends RandomAccessReader = RandomAccessReader> extends EventEmitter {
+export class ZipFile<TReader extends IRandomAccessReader = IRandomAccessReader> extends EventEmitter {
+  public autoClose: boolean
+  public emittedError: boolean
   private readonly validateEntrySizes: boolean
   private readonly reader: TReader
   private readonly lazyEntries: boolean
   private readonly entryCount: number
   private entriesRead: number
-  public autoClose: boolean
-  public emittedError: boolean
   private readonly strictFileNames: boolean
   private readEntryCursor: number
   private fileSize: number
@@ -489,11 +483,11 @@ export class ZipFile<TReader extends RandomAccessReader = RandomAccessReader> ex
             start: fileDataStart + relativeStart,
             end: fileDataStart + relativeEnd,
           })
-          let endpointStream = readStream
+          let endpointStream = readStream as Transform
           if (decompress) {
             let destroyed = false
             const inflateFilter = zlib.createInflateRaw()
-            readStream.on('error', (err) => {
+            readStream.on('error', (err: Error) => {
               // setImmediate here because errors can be emitted during the first call to pipe()
               setImmediate(() => {
                 if (!destroyed) inflateFilter.emit('error', err)

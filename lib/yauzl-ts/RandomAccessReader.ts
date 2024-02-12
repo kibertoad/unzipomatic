@@ -1,16 +1,33 @@
-import EventEmitter from 'node:events'
-import { PassThrough, Writable } from 'stream'
 import type { Readable, Transform } from 'stream'
+import { PassThrough, Writable } from 'stream'
 
 import { AssertByteCountStream } from './internal/AssertByteCountStream'
 import { RefUnrefFilter } from './internal/RefUnrefFilter'
+import EventEmitter from 'node:events'
+import { FdSlicer, ReadStream } from 'better-fd-slicer'
 
 export interface RandomAccessReaderCreateReadStream {
   start: number
   end: number
 }
 
-export class RandomAccessReader extends EventEmitter {
+export interface IRandomAccessReader extends EventEmitter {
+  createReadStream(options: { start?: number, end?: number }): Transform | ReadStream
+
+  read(
+    buffer: Buffer,
+    offset: number,
+    length: number,
+    position: number,
+    callback: ((error: Error | null, bytesRead: number) => void) | ((error: Error | null, bytesRead: number, buffer: Buffer) => void),
+  ): void
+
+  ref(): void;
+
+  unref(): void;
+}
+
+export class RandomAccessReader extends EventEmitter implements IRandomAccessReader {
   private refCount: number
 
   constructor() {
@@ -55,7 +72,7 @@ export class RandomAccessReader extends EventEmitter {
         if (!destroyed) refUnrefFilter.emit('error', err)
       })
     })
-    refUnrefFilter.destroy = function (_?: Error) {
+    refUnrefFilter.destroy = function(_?: Error) {
       stream.unpipe(refUnrefFilter)
       refUnrefFilter.unref()
       stream.destroy()
@@ -69,7 +86,7 @@ export class RandomAccessReader extends EventEmitter {
         if (!destroyed) byteCounter.emit('error', err)
       })
     })
-    byteCounter.destroy = function () {
+    byteCounter.destroy = function() {
       destroyed = true
       refUnrefFilter.unpipe(byteCounter)
       refUnrefFilter.destroy()
@@ -77,7 +94,7 @@ export class RandomAccessReader extends EventEmitter {
       return this
     }
 
-    return stream.pipe(refUnrefFilter).pipe(byteCounter)
+    return stream.pipe(refUnrefFilter as Writable).pipe(byteCounter)
   }
 
   _readStreamForRange(_start: number, _end: number): Readable {
