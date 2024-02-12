@@ -26,14 +26,14 @@ export async function unzipToFilesystem(
   source: SourceType,
   targetDir: string,
   options: UnzipOptions,
-): Promise<TargetFileMetadata> {
+): Promise<void> {
   if (!Buffer.isBuffer(source)) {
     throw new Error('Only buffer is currently supported')
   }
 
   const fileWrites: Promise<void>[] = [] // Array to track file write promises
 
-  const result = await new Promise((operationResolve, operationReject) => {
+  await new Promise((operationResolve, operationReject) => {
     return new Promise<ZipFile | undefined>((openResolve, openReject) => {
       fromBuffer(source, { lazyEntries: true }, (err, result) => {
         if (err) {
@@ -106,11 +106,6 @@ export async function unzipToFilesystem(
       zipfile.readEntry()
     })
   })
-
-  return {
-    fullPath: 'dummy', // Adjust as needed
-    fileSize: 444, // Adjust as needed
-  }
 }
 
 /**
@@ -119,17 +114,23 @@ export async function unzipToFilesystem(
 export function unzipToReadableGenerator(
   source: SourceType,
   options: UnzipOptions,
-): Promise<FileGenerator>
+): Promise<FileGenerator> {
+  throw new Error('Not implemented')
+}
 
 /**
  * Used to extract a single-file archive
  */
-export function unzipToReadable(source: SourceType, options: UnzipOptions): Promise<Readable>
+export function unzipToReadable(source: SourceType, options: UnzipOptions): Promise<Readable> {
+  throw new Error('Not implemented')
+}
 
 /**
  * Used to extract a single-file archive
  */
-export function unzipToBuffer(source: SourceType, options: UnzipOptions): Promise<Buffer>
+export function unzipToBuffer(source: SourceType, options: UnzipOptions): Promise<Buffer> {
+  throw new Error('Not implemented')
+}
 
 // TBD
 // Do we need to support filters for extracting just a subset of files?
