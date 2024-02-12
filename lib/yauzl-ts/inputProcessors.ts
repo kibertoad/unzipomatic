@@ -1,11 +1,9 @@
 import fs from 'fs'
 
-import type { RandomAccessReader } from './RandomAccessReader'
+import type { IRandomAccessReader, RandomAccessReader } from './RandomAccessReader'
 import { ZipFile } from './ZipFile'
 import { decodeBuffer, defaultCallback, readAndAssertNoEof, readUInt64LE } from './internal/utils'
-
-// reference https://github.com/kibertoad/unzipomatic/issues/13
-const fd_slicer = require('fd-slicer')
+import { createFromBuffer, createFromFd } from 'better-fd-slicer'
 
 export interface OpenOptions {
   autoClose?: boolean
@@ -110,8 +108,7 @@ export function fromFd(
 
   fs.fstat(fd, (err, stats) => {
     if (err) return callback(err)
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
-    const reader = fd_slicer.createFromFd(fd, { autoClose: true })
+    const reader = createFromFd(fd, { autoClose: true })
     fromRandomAccessReader(reader, stats.size, options, callback)
   })
 }
@@ -128,25 +125,24 @@ export function fromBuffer(
   options.autoClose = false
 
   // limit the max chunk size. see https://github.com/thejoshwolfe/yauzl/issues/87
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
-  const reader = fd_slicer.createFromBuffer(buffer, { maxChunkSize: 0x10000 })
+  const reader = createFromBuffer(buffer, { maxChunkSize: 0x10000 })
   fromRandomAccessReader(reader, buffer.length, options, callback)
 }
 
-export function fromRandomAccessReader<TReader extends RandomAccessReader>(
+export function fromRandomAccessReader<TReader extends IRandomAccessReader>(
   reader: TReader,
   totalSize: number,
   options: OpenOptions,
   callback: OpenCallback,
 ): void
 
-export function fromRandomAccessReader<TReader extends RandomAccessReader>(
+export function fromRandomAccessReader<TReader extends IRandomAccessReader>(
   reader: TReader,
   totalSize: number,
   callback: OpenCallback,
 ): void
 
-export function fromRandomAccessReader<TReader extends RandomAccessReader>(
+export function fromRandomAccessReader<TReader extends IRandomAccessReader>(
   reader: TReader,
   totalSize: number,
   optionsOrCallback: OpenOptions | OpenCallback,

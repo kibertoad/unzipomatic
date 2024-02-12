@@ -1,4 +1,4 @@
-import type { RandomAccessReader } from '../RandomAccessReader'
+import type { IRandomAccessReader, RandomAccessReader } from '../RandomAccessReader'
 import type { ZipFile } from '../ZipFile'
 
 const cp437 =
@@ -28,7 +28,7 @@ export function dosDateTimeToDate(date: number, time: number) {
   return new Date(year, month, day, hour, minute, second, millisecond)
 }
 
-export function readAndAssertNoEof<TReader extends RandomAccessReader>(
+export function readAndAssertNoEof<TReader extends IRandomAccessReader>(
   reader: TReader,
   buffer: Buffer,
   offset: number,
