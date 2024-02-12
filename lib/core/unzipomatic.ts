@@ -33,78 +33,80 @@ export async function unzipToFilesystem(
 
   const fileWrites: Promise<void>[] = [] // Array to track file write promises
 
-  await new Promise((operationResolve, operationReject) => {
-    return new Promise<ZipFile | undefined>((openResolve, openReject) => {
-      fromBuffer(source, { lazyEntries: true }, (err, result) => {
-        if (err) {
-          return openReject(err)
-        }
-        openResolve(result)
-      })
-    }).then((zipfile) => {
-      if (!zipfile) {
-        return
+const zipFileOrError = await new Promise<Error | ZipFile>((openResolve) => {
+    fromBuffer(source, { lazyEntries: true }, (err, result) => {
+      if (err) {
+        return openResolve(err)
       }
+      openResolve(result!)
+    })
+  })
 
-      zipfile.on('entry', (entry) => {
-        if (/\/$/.test(entry.fileName)) {
-          // Directory: create if doesn't exist
-          const directoryPath = join(targetDir, entry.fileName)
-          void mkdir(directoryPath, { recursive: true })
-            .then(() => {
-              zipfile.readEntry()
-            })
-            .catch((err) => {
-              operationReject(err)
-            })
-        } else {
-          // File: extract
-          zipfile.openReadStream(
-            entry,
-            { decrypt: entry.isEncrypted() ? false : undefined },
-            (err, readStream) => {
-              if (err) {
-                operationReject(err)
-                return
-              }
-              if (!readStream) {
-                operationReject(new Error('No readstream'))
-                return
-              }
+  if (zipFileOrError instanceof Error) {
+    throw zipFileOrError
+  }
 
-              const filePath = join(targetDir, entry.fileName)
-              fileWrites.push(
-                (async () => {
-                  await mkdir(dirname(filePath), { recursive: true })
-                  await pipeline(readStream, createWriteStream(filePath)) // Use pipeline for proper error handling
-                })(),
-              )
+  const zipfile = zipFileOrError
 
-              readStream.on('end', () => {
-                zipfile.readEntry()
-              })
-            },
-          )
-        }
-      })
-
-      zipfile.on('end', () => {
-        // Wait for all file writes to complete
-        void Promise.all(fileWrites)
+  await new Promise((operationResolve, operationReject) => {
+    zipfile.on('entry', (entry) => {
+      if (/\/$/.test(entry.fileName)) {
+        // Directory: create if doesn't exist
+        const directoryPath = join(targetDir, entry.fileName)
+        void mkdir(directoryPath, { recursive: true })
           .then(() => {
-            operationResolve(undefined)
+            zipfile.readEntry()
           })
           .catch((err) => {
             operationReject(err)
           })
-      })
+      } else {
+        // File: extract
+        zipfile.openReadStream(
+          entry,
+          { decrypt: entry.isEncrypted() ? false : undefined },
+          (err, readStream) => {
+            if (err) {
+              operationReject(err)
+              return
+            }
+            if (!readStream) {
+              operationReject(new Error('No readstream'))
+              return
+            }
 
-      zipfile.on('error', (err) => {
-        operationReject(err)
-      })
+            const filePath = join(targetDir, entry.fileName)
+            fileWrites.push(
+              (async () => {
+                await mkdir(dirname(filePath), { recursive: true })
+                await pipeline(readStream, createWriteStream(filePath)) // Use pipeline for proper error handling
+              })(),
+            )
 
-      zipfile.readEntry()
+            readStream.on('end', () => {
+              zipfile.readEntry()
+            })
+          },
+        )
+      }
     })
+
+    zipfile.on('end', () => {
+      // Wait for all file writes to complete
+      void Promise.all(fileWrites)
+        .then(() => {
+          operationResolve(undefined)
+        })
+        .catch((err) => {
+          operationReject(err)
+        })
+    })
+
+    zipfile.on('error', (err) => {
+      operationReject(err)
+    })
+
+    zipfile.readEntry()
   })
 }
 
