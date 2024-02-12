@@ -37,8 +37,8 @@
     "build": "tsc -p tsconfig.build.json --noEmit && tsup",
     "test": "vitest --coverage",
     "test:ci": "npm run lint && npm run test",
-    "lint": "biome lint index.ts lib/core test biome.json",
-    "lint:fix": "biome check --apply index.ts lib/core test biome.json",
+    "lint": "biome lint .",
+    "lint:fix": "biome check --apply .",
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
