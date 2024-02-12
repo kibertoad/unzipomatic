@@ -41,7 +41,7 @@ export class RandomAccessReader extends EventEmitter {
 
     if (start === end) {
       const emptyStream = new PassThrough()
-      setImmediate(function () {
+      setImmediate(() => {
         emptyStream.end()
       })
       return emptyStream
@@ -50,8 +50,8 @@ export class RandomAccessReader extends EventEmitter {
 
     let destroyed = false
     const refUnrefFilter = new RefUnrefFilter(this)
-    stream.on('error', function (err) {
-      setImmediate(function () {
+    stream.on('error', (err) => {
+      setImmediate(() => {
         if (!destroyed) refUnrefFilter.emit('error', err)
       })
     })
@@ -64,8 +64,8 @@ export class RandomAccessReader extends EventEmitter {
     }
 
     const byteCounter = new AssertByteCountStream(end - start)
-    refUnrefFilter.on('error', function (err) {
-      setImmediate(function () {
+    refUnrefFilter.on('error', (err) => {
+      setImmediate(() => {
         if (!destroyed) byteCounter.emit('error', err)
       })
     })
@@ -94,13 +94,13 @@ export class RandomAccessReader extends EventEmitter {
     const readStream = this.createReadStream({ start: position, end: position + length })
     const writeStream = new Writable()
     let written = 0
-    writeStream._write = function (chunk: Buffer, encoding, cb) {
+    writeStream._write = (chunk: Buffer, encoding, cb) => {
       chunk.copy(buffer, offset + written, 0, chunk.length)
       written += chunk.length
       cb()
     }
     writeStream.on('finish', callback)
-    readStream.on('error', function (error: Error) {
+    readStream.on('error', (error: Error) => {
       callback(error, 0)
     })
     readStream.pipe(writeStream)
