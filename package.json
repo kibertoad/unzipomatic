@@ -58,7 +58,7 @@
   "devDependencies": {
     "@biomejs/biome": "1.5.3",
     "@types/buffer-crc32": "0.2.4",
-    "@types/node": "20.11.17",
+    "@types/node": "20.11.19",
     "@vitest/coverage-v8": "1.2.2",
     "cli-testlab": "4.0.0",
     "lefthook": "1.6.1",
