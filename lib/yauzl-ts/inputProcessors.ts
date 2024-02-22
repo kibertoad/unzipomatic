@@ -1,6 +1,6 @@
 import fs from 'fs'
 
-import type { IRandomAccessReader, RandomAccessReader } from './RandomAccessReader'
+import type { IRandomAccessReader } from './RandomAccessReader'
 import { ZipFile } from './ZipFile'
 import { decodeBuffer, defaultCallback, readAndAssertNoEof, readUInt64LE } from './internal/utils'
 import { createFromBuffer, createFromFd } from 'better-fd-slicer'
@@ -127,6 +127,15 @@ export function fromBuffer(
   // limit the max chunk size. see https://github.com/thejoshwolfe/yauzl/issues/87
   const reader = createFromBuffer(buffer, { maxChunkSize: 0x10000 })
   fromRandomAccessReader(reader, buffer.length, options, callback)
+}
+
+export function fromBufferAsync(buffer: Buffer, options?: BufferOpenOptions): Promise<ZipFile> {
+  return new Promise((resolve, reject) => {
+    fromBuffer(buffer, options || { }, (err, zipfile) => {
+      if (err) reject(err)
+      else resolve(zipfile!)
+    })
+  })
 }
 
 export function fromRandomAccessReader<TReader extends IRandomAccessReader>(
