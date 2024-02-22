@@ -64,7 +64,7 @@ export async function unzipToFilesystem(
         // File: extract
         zipfile.openReadStream(
           entry,
-          { decrypt: entry.isEncrypted() ? false : undefined },
+          { decrypt: entry.isEncrypted() ? false : undefined, ...options },
           (err, readStream) => {
             if (err) {
               operationReject(err)

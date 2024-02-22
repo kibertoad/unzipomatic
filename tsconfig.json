@@ -20,7 +20,8 @@
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
-    "verbatimModuleSyntax": true
+    "verbatimModuleSyntax": true,
+    "noImplicitAny": false
   },
   "include": ["index.ts", "lib/**/*.ts"],
   "exclude": ["node_modules", "dist", "src/**/*.spec.ts"],

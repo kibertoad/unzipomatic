@@ -220,7 +220,7 @@ export class ZipFile<TReader extends IRandomAccessReader = IRandomAccessReader> 
             ) {
               // ZIP64 format
               // find the Zip64 Extended Information Extra Field
-              let zip64EiefBuffer = null
+              let zip64EiefBuffer: Buffer | null = null
               for (i = 0; i < entry.extraFields.length; i++) {
                 extraField = entry.extraFields[i]
                 if (extraField.id === 0x0001) {
