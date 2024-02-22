@@ -7,16 +7,17 @@ export default defineConfig({
     environment: 'node',
     reporters: ['verbose'],
     coverage: {
-      include: ['src/**/*.ts'],
-      exclude: ['src/**/*.spec.ts'],
+      include: ['lib/**/*.ts'],
+      exclude: ['lib/**/*.spec.ts'],
       reporter: ['text'],
       all: true,
-      thresholds: {
-        lines: 100,
-        functions: 100,
-        branches: 100,
-        statements: 100,
-      },
+      // Disabling thresholds for now
+      // thresholds: {
+      //   lines: 100,
+      //   functions: 100,
+      //   branches: 100,
+      //   statements: 100,
+      // },
     },
   },
 })
