@@ -1,6 +1,5 @@
 import { join } from 'node:path'
 import { readFileSync } from 'fs'
-import type { UnzipOptions } from '../lib/core/unzipomatic'
 
 const readTestFileContent = (filename: string) => {
   try {
@@ -14,7 +13,6 @@ const readTestFileContent = (filename: string) => {
 export type TestCase = {
   path: string;
   name: string;
-  options?: UnzipOptions;
   expect: SuccessTestCase | FailureTestCase | FlakyTestCase
 }
 
@@ -169,7 +167,6 @@ export const testCases: TestCase[] = [
   {
     path: join('./success/traditional-encryption-and-compression.zip'),
     name: 'traditional-encryption-and-compression.zip',
-    options: { decompress: false },
     expect: {
       success: true,
       files: [

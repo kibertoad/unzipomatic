@@ -4,7 +4,7 @@ import { PassThrough, Writable } from 'stream'
 import { AssertByteCountStream } from './internal/AssertByteCountStream'
 import { RefUnrefFilter } from './internal/RefUnrefFilter'
 import EventEmitter from 'node:events'
-import { FdSlicer, ReadStream } from 'better-fd-slicer'
+import { ReadStream } from 'better-fd-slicer'
 
 export interface RandomAccessReaderCreateReadStream {
   start: number
@@ -12,6 +12,8 @@ export interface RandomAccessReaderCreateReadStream {
 }
 
 export interface IRandomAccessReader extends EventEmitter {
+  refCount: number;
+
   createReadStream(options: { start?: number, end?: number }): Transform | ReadStream
 
   read(
@@ -28,7 +30,7 @@ export interface IRandomAccessReader extends EventEmitter {
 }
 
 export class RandomAccessReader extends EventEmitter implements IRandomAccessReader {
-  private refCount: number
+  public refCount: number
 
   constructor() {
     super()
