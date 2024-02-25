@@ -25,6 +25,13 @@ export type SuccessTestCase = {
 
 export type FailureTestCase = {
   success: false;
+  /**
+   * Meanings:
+   * - create: Error during zip file creation
+   * - unzip: Error during zip file extraction
+   * - read: Error during zip fil read content
+   */
+  errorWhile: 'create' | 'unzip' | 'read',
   error: string;
 };
 
@@ -35,6 +42,7 @@ export type FlakyTestCase = {
 export type FileTestCase = {
   type: 'file';
   name: string;
+  encrypted?: boolean;
   content: string;
 } | {
   type: 'directory';
@@ -83,11 +91,11 @@ export const testCases: TestCase[] = [
       files: [
         {
           type: 'directory',
-          name: 'a',
+          name: 'a/',
         },
         {
           type: 'directory',
-          name: 'b',
+          name: 'b/',
         },
         {
           type: 'file',
@@ -152,6 +160,7 @@ export const testCases: TestCase[] = [
         {
           type: 'file',
           name: 'a.txt',
+          encrypted: true,
           content: readTestFileContent('./success/traditional-encryption/a.txt'),
         },
       ]
@@ -167,6 +176,7 @@ export const testCases: TestCase[] = [
         {
           type: 'file',
           name: 'a.bin',
+          encrypted: true,
           content: readTestFileContent('./success/traditional-encryption-and-compression/a.bin'),
         },
       ]
@@ -179,9 +189,21 @@ export const testCases: TestCase[] = [
       success: true,
       files: [
         {
+          type: 'directory',
+          name: 'Turmion Kätilöt/',
+        },
+        {
+          type: 'directory',
+          name: 'Turmion Kätilöt/Hoitovirhe/',
+        },
+        {
           type: 'file',
           name: 'Turmion Kätilöt/Hoitovirhe/Rautaketju.mp3',
           content: readTestFileContent('./success/unicode/Turmion Kätilöt/Hoitovirhe/Rautaketju.mp3'),
+        },
+        {
+          type: 'directory',
+          name: 'Turmion Kätilöt/Pirun nyrkki/',
         },
         {
           type: 'file',
@@ -267,6 +289,7 @@ export const testCases: TestCase[] = [
     name: 'absolute path atxt.zip',
     expect: {
       success: false,
+      errorWhile: 'unzip',
       error: 'absolute path: /atxt',
     },
   },
@@ -275,6 +298,7 @@ export const testCases: TestCase[] = [
     name: 'absolute path C xt.zip',
     expect: {
       success: false,
+      errorWhile: 'unzip',
       error: 'absolute path: C:/xt',
     },
   },
@@ -283,6 +307,7 @@ export const testCases: TestCase[] = [
     name: 'compressed uncompressed size mismatch for stored file 2147483647 5.zip',
     expect: {
       success: false,
+      errorWhile: 'unzip',
       error: 'compressed/uncompressed size mismatch for stored file: 2147483647 != 5',
     },
   },
@@ -291,6 +316,7 @@ export const testCases: TestCase[] = [
     name: 'end of central directory record signature not found.zip',
     expect: {
       success: false,
+      errorWhile: 'create',
       error: 'end of central directory record signature not found',
     },
   },
@@ -299,6 +325,7 @@ export const testCases: TestCase[] = [
     name: 'end of central directory record signature not found_1.zip',
     expect: {
       success: false,
+      errorWhile: 'create',
       error: 'end of central directory record signature not found',
     },
   },
@@ -307,6 +334,7 @@ export const testCases: TestCase[] = [
     name: 'expected zip64 extended information extra field.zip',
     expect: {
       success: false,
+      errorWhile: 'unzip',
       error: 'expected zip64 extended information extra field',
     },
   },
@@ -315,6 +343,7 @@ export const testCases: TestCase[] = [
     name: 'extra field length exceeds extra field buffer size.zip',
     expect: {
       success: false,
+      errorWhile: 'unzip',
       error: 'extra field length exceeds extra field buffer size',
     },
   },
@@ -323,6 +352,7 @@ export const testCases: TestCase[] = [
     name: 'file data overflows file bounds 63 2147483647 308.zip',
     expect: {
       success: false,
+      errorWhile: 'read',
       error: 'file data overflows file bounds: 63 + 2147483647 > 308',
     },
   },
@@ -331,6 +361,7 @@ export const testCases: TestCase[] = [
     name: 'invalid central directory file header signature 0x1014b50.zip',
     expect: {
       success: false,
+      errorWhile: 'unzip',
       error: 'invalid central directory file header signature: 0x1014b50',
     },
   },
@@ -346,6 +377,7 @@ export const testCases: TestCase[] = [
     name: 'invalid comment length expected 1 found 0.zip',
     expect: {
       success: false,
+      errorWhile: 'create',
       error: 'invalid comment length. expected: 1. found: 0',
     },
   },
@@ -354,6 +386,7 @@ export const testCases: TestCase[] = [
     name: 'invalid local file header signature 0x3034b50.zip',
     expect: {
       success: false,
+      errorWhile: 'read',
       error: 'invalid local file header signature: 0x3034b50',
     },
   },
@@ -362,6 +395,7 @@ export const testCases: TestCase[] = [
     name: 'invalid relative path xt.zip',
     expect: {
       success: false,
+      errorWhile: 'unzip',
       error: 'invalid relative path: ../xt',
     },
   },
@@ -370,6 +404,7 @@ export const testCases: TestCase[] = [
     name: 'invalid zip64 end of central directory locator signature.zip',
     expect: {
       success: false,
+      errorWhile: 'create',
       error: 'invalid zip64 end of central directory locator signature',
     },
   },
@@ -378,6 +413,7 @@ export const testCases: TestCase[] = [
     name: 'invalid zip64 end of central directory record signature.zip',
     expect: {
       success: false,
+      errorWhile: 'create',
       error: 'invalid zip64 end of central directory record signature',
     },
   },
@@ -386,6 +422,7 @@ export const testCases: TestCase[] = [
     name: 'multi-disk zip files are not supported found disk number 1.zip',
     expect: {
       success: false,
+      errorWhile: 'create',
       error: 'multi-disk zip files are not supported: found disk number: 1',
     },
   },
@@ -401,6 +438,7 @@ export const testCases: TestCase[] = [
     name: 'strong encryption is not supported.zip',
     expect: {
       success: false,
+      errorWhile: 'unzip',
       error: 'strong encryption is not supported',
     },
   },
@@ -423,6 +461,7 @@ export const testCases: TestCase[] = [
     name: 'unsupported compression method 1.zip',
     expect: {
       success: false,
+      errorWhile: 'read',
       error: 'unsupported compression method: 1',
     },
   },
@@ -431,6 +470,7 @@ export const testCases: TestCase[] = [
     name: 'zip64 extended information extra field does not include compressed size.zip',
     expect: {
       success: false,
+      errorWhile: 'unzip',
       error: 'zip64 extended information extra field does not include compressed size',
     },
   },
@@ -439,6 +479,7 @@ export const testCases: TestCase[] = [
     name: 'zip64 extended information extra field does not include relative header offset.zip',
     expect: {
       success: false,
+      errorWhile: 'unzip',
       error: 'zip64 extended information extra field does not include relative header offset',
     },
   },
@@ -447,6 +488,7 @@ export const testCases: TestCase[] = [
     name: 'zip64 extended information extra field does not include uncompressed size.zip',
     expect: {
       success: false,
+      errorWhile: 'unzip',
       error: 'zip64 extended information extra field does not include uncompressed size',
     },
   },

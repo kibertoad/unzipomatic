@@ -64,6 +64,7 @@
     "bl": "6.0.11",
     "cli-testlab": "4.0.0",
     "lefthook": "1.6.1",
+    "tslib": "2.6.2",
     "tsup": "8.0.2",
     "typescript": "5.3.3",
     "vitest": "1.3.1"

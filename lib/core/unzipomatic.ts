@@ -5,8 +5,7 @@ import type { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 
 import type { Entry } from '../yauzl-ts/Entry'
-import type { ZipFile } from '../yauzl-ts/ZipFile'
-import { fromBuffer } from '../yauzl-ts/inputProcessors'
+import { fromBufferAsync } from '../yauzl-ts/inputProcessors'
 
 export type UnzipOptions = {
   // ToDo, but I would start with making yauzl defaults non-configureable and see if there is demand for flexibility there
@@ -14,13 +13,8 @@ export type UnzipOptions = {
 
 export type SourceType = string | File | Blob | Buffer | Readable
 
-export type TargetFileMetadata = {
-  fullPath: string
-  fileSize: number
-}
-
 // ToDo
-export type FileGenerator = Generator<Entry, void, void>
+export type FileGenerator = AsyncGenerator<Entry, void, void>
 
 export async function unzipToFilesystem(
   source: SourceType,
@@ -28,22 +22,17 @@ export async function unzipToFilesystem(
   options: UnzipOptions,
 ): Promise<void> {
   if (!Buffer.isBuffer(source)) {
-    throw new Error('Only buffer is currently supported')
+    return Promise.reject(new Error('Only buffer is currently supported'))
   }
 
   const fileWrites: Promise<void>[] = [] // Array to track file write promises
 
-  const zipFileOrError = await new Promise<Error | ZipFile>((openResolve) => {
-    fromBuffer(source, { lazyEntries: true }, (err, result) => {
-      if (err) {
-        return openResolve(err)
-      }
-      openResolve(result!)
-    })
-  })
+  const zipFileOrError = await fromBufferAsync(source, { lazyEntries: true }).catch(
+    (err: Error) => err,
+  )
 
   if (zipFileOrError instanceof Error) {
-    throw zipFileOrError
+    return Promise.reject(zipFileOrError)
   }
 
   const zipfile = zipFileOrError
@@ -111,13 +100,67 @@ export async function unzipToFilesystem(
 }
 
 /**
- * Used to iterate over multiple files in an archive
+ * Used to iterate over multiple files in an archive.
+ *
+ * In case you want to stop the iteration in the middle, you MUST call `generator.return()` to dispose the resources,
+ * otherwise, the generator will keep the resources open and you will have a memory leak.
  */
-export function unzipToReadableGenerator(
-  source: SourceType,
-  options: UnzipOptions,
-): Promise<FileGenerator> {
-  throw new Error('Not implemented')
+export async function* unzipToGenerator(source: SourceType, options: UnzipOptions): FileGenerator {
+  if (!Buffer.isBuffer(source)) {
+    yield Promise.reject(new Error('Only buffer is currently supported'))
+    return
+  }
+
+  const zipFileOrError = await fromBufferAsync(source, { lazyEntries: true, ...options }).catch(
+    (err: Error) => err,
+  )
+
+  if (zipFileOrError instanceof Error) {
+    yield Promise.reject(zipFileOrError)
+    return
+  }
+
+  const zipfile = zipFileOrError
+  type ResolvedData = { error?: Error; entry?: Entry }
+  let resolveNextEntry: (data?: ResolvedData) => void
+
+  zipfile.on('entry', (entry) => {
+    resolveNextEntry({ entry })
+  })
+
+  zipfile.on('end', () => {
+    resolveNextEntry()
+  })
+
+  zipfile.on('error', (error) => {
+    resolveNextEntry({ error })
+  })
+
+  try {
+    do {
+      const waitResolve = new Promise<ResolvedData | undefined>((resolve) => {
+        resolveNextEntry = resolve
+      })
+
+      zipfile.readEntry()
+      const resolvedData = await waitResolve
+
+      if (!resolvedData) {
+        break
+      }
+
+      if (resolvedData.entry) {
+        yield resolvedData.entry
+        continue
+      }
+
+      yield Promise.reject(resolvedData.error)
+      break
+    } while (true)
+  } finally {
+    zipfile.removeAllListeners()
+    zipfile.close()
+  }
 }
 
 /**
