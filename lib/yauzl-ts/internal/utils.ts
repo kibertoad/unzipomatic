@@ -1,4 +1,4 @@
-import type { IRandomAccessReader, RandomAccessReader } from '../RandomAccessReader'
+import type { IRandomAccessReader } from '../RandomAccessReader'
 import type { ZipFile } from '../ZipFile'
 
 const cp437 =
@@ -49,6 +49,28 @@ export function readAndAssertNoEof<TReader extends IRandomAccessReader>(
     }
     callback(null)
   })
+}
+
+export function readAndAssertNoEofAsync<TReader extends IRandomAccessReader>(
+  reader: TReader,
+  buffer: Buffer,
+  offset: number,
+  length: number,
+  position: number,
+): Promise<void> {
+  if (length === 0) {
+    // fs.read will throw an out-of-bounds error if you try to read 0 bytes from a 0 byte file
+    return Promise.resolve();
+  }
+  return new Promise((resolve, reject) => {
+    reader.read(buffer, offset, length, position, (err: Error | null, bytesRead: number) => {
+      if (err) return reject(err)
+      if (bytesRead < length) {
+        return reject(new Error('unexpected EOF'))
+      }
+      resolve();
+    });
+  });
 }
 
 export function decodeBuffer(buffer: Buffer, start: number, end: number, isUtf8: boolean) {

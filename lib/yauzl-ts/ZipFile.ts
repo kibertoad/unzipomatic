@@ -1,38 +1,27 @@
 import EventEmitter from 'node:events'
-import zlib from 'node:zlib'
-import type { Transform } from 'stream'
 
 import crc32 from 'buffer-crc32'
 
 import { Entry } from './Entry'
 import type { IRandomAccessReader } from './RandomAccessReader'
-import { AssertByteCountStream } from './internal/AssertByteCountStream'
 import { decodeBuffer, emitError, emitErrorAndAutoClose, readAndAssertNoEof, readUInt64LE } from './internal/utils'
 import { validateFileName } from './validations'
-
-export interface OpenReadStreamOptions {
-  decrypt?: false
-  decompress?: false
-  start?: number
-  end?: number
-}
-
-export type OpenReadStreamCallback = (err: Error | null, stream?: Transform) => void
 
 export class ZipFile<TReader extends IRandomAccessReader = IRandomAccessReader> extends EventEmitter {
   public autoClose: boolean
   public emittedError: boolean
-  private readonly validateEntrySizes: boolean
-  private readonly reader: TReader
-  private readonly lazyEntries: boolean
-  private readonly entryCount: number
-  private entriesRead: number
-  private readonly strictFileNames: boolean
-  private readEntryCursor: number
-  private fileSize: number
-  private comment: string | Buffer
-  private readonly decodeStrings: boolean
-  private isOpen: boolean
+  public readonly reader: TReader
+  public isOpen: boolean
+  public readonly fileSize: number
+  public readonly comment: string | Buffer
+  public readonly decodeStrings: boolean
+  public readonly validateEntrySizes: boolean
+  public readonly lazyEntries: boolean
+  public readonly entryCount: number
+  public readonly strictFileNames: boolean
+
+  #entriesRead: number
+  #readEntryCursor: number
 
   constructor(
     reader: TReader,
@@ -57,11 +46,11 @@ export class ZipFile<TReader extends IRandomAccessReader = IRandomAccessReader> 
     this.reader.once('close', () => {
       this.emit('close')
     })
-    this.readEntryCursor = centralDirectoryOffset
+    this.#readEntryCursor = centralDirectoryOffset
     this.fileSize = fileSize
     this.entryCount = entryCount
     this.comment = comment
-    this.entriesRead = 0
+    this.#entriesRead = 0
     this.autoClose = autoClose
     this.lazyEntries = lazyEntries
     this.decodeStrings = decodeStrings
@@ -79,7 +68,7 @@ export class ZipFile<TReader extends IRandomAccessReader = IRandomAccessReader> 
   }
 
   _readEntry() {
-    if (this.entryCount === this.entriesRead) {
+    if (this.entryCount === this.#entriesRead) {
       // done with metadata
       return setImmediate(() => {
         if (this.autoClose) this.close()
@@ -97,12 +86,12 @@ export class ZipFile<TReader extends IRandomAccessReader = IRandomAccessReader> 
       buffer,
       0,
       buffer.length,
-      this.readEntryCursor,
+      this.#readEntryCursor,
       (err: Error | null, _) => {
         if (err) return emitErrorAndAutoClose(this, err)
         if (this.emittedError) return
 
-        const entry = new Entry()
+        const entry = new Entry(this)
         // 0 - Central directory file header signature
         const signature = buffer.readUInt32LE(0)
 
@@ -150,7 +139,7 @@ export class ZipFile<TReader extends IRandomAccessReader = IRandomAccessReader> 
         if (entry.generalPurposeBitFlag & 0x40)
           return emitErrorAndAutoClose(this, new Error('strong encryption is not supported'))
 
-        this.readEntryCursor += 46
+        this.#readEntryCursor += 46
 
         buffer = Buffer.allocUnsafe(
           entry.fileNameLength + entry.extraFieldLength + entry.fileCommentLength,
@@ -161,7 +150,7 @@ export class ZipFile<TReader extends IRandomAccessReader = IRandomAccessReader> 
           buffer,
           0,
           buffer.length,
-          this.readEntryCursor,
+          this.#readEntryCursor,
           (err: Error | null) => {
             let extraField
             if (err) return emitErrorAndAutoClose(this, err)
@@ -210,8 +199,8 @@ export class ZipFile<TReader extends IRandomAccessReader = IRandomAccessReader> 
             // compatibility hack for https://github.com/thejoshwolfe/yauzl/issues/47
             entry.comment = entry.fileComment
 
-            this.readEntryCursor += buffer.length
-            this.entriesRead += 1
+            this.#readEntryCursor += buffer.length
+            this.#entriesRead += 1
 
             if (
               entry.uncompressedSize === 0xffffffff ||
@@ -334,195 +323,6 @@ export class ZipFile<TReader extends IRandomAccessReader = IRandomAccessReader> 
             if (!this.lazyEntries) this._readEntry()
           },
         )
-      },
-    )
-  }
-
-  openReadStream(
-    entry: Entry,
-    options: OpenReadStreamOptions,
-    callback: OpenReadStreamCallback,
-  ): void
-
-  openReadStream(entry: Entry, callback: OpenReadStreamCallback): void
-
-  openReadStream(
-    entry: Entry,
-    optionsOrCallback: OpenReadStreamOptions | OpenReadStreamCallback,
-    maybeCallback?: OpenReadStreamCallback,
-  ): void {
-    // parameter validation
-    let relativeStart = 0
-    let relativeEnd = entry.compressedSize
-
-    let options: OpenReadStreamOptions
-    let callback: OpenReadStreamCallback
-
-    if (typeof optionsOrCallback === 'function') {
-      callback = optionsOrCallback
-      options = {}
-    } else {
-      options = optionsOrCallback
-      callback = maybeCallback as OpenReadStreamCallback
-
-      // validate options that the caller has no excuse to get wrong
-      if (options.decrypt != null) {
-        if (!entry.isEncrypted()) {
-          throw new Error('options.decrypt can only be specified for encrypted entries')
-        }
-        if (optionsOrCallback.decrypt !== false)
-          throw new Error(`invalid options.decrypt value: ${options.decrypt as boolean}`)
-        if (entry.isCompressed()) {
-          if (optionsOrCallback.decompress !== false)
-            throw new Error('entry is encrypted and compressed, and options.decompress !== false')
-        }
-      }
-      if (options.decompress != null) {
-        if (!entry.isCompressed()) {
-          throw new Error('options.decompress can only be specified for compressed entries')
-        }
-        if (!(options.decompress === false || options.decompress === true)) {
-          throw new Error(`invalid options.decompress value: ${options.decompress as boolean}`)
-        }
-      }
-      if (options.start != null || options.end != null) {
-        if (entry.isCompressed() && optionsOrCallback.decompress !== false) {
-          throw new Error(
-            'start/end range not allowed for compressed entry without options.decompress === false',
-          )
-        }
-        if (entry.isEncrypted() && optionsOrCallback.decrypt !== false) {
-          throw new Error(
-            'start/end range not allowed for encrypted entry without options.decrypt === false',
-          )
-        }
-      }
-      if (options.start != null) {
-        relativeStart = options.start
-        if (relativeStart < 0) throw new Error('options.start < 0')
-        if (relativeStart > entry.compressedSize)
-          throw new Error('options.start > entry.compressedSize')
-      }
-      if (options.end != null) {
-        relativeEnd = options.end
-        if (relativeEnd < 0) throw new Error('options.end < 0')
-        if (relativeEnd > entry.compressedSize)
-          throw new Error('options.end > entry.compressedSize')
-        if (relativeEnd < relativeStart) throw new Error('options.end < options.start')
-      }
-    }
-    // any further errors can either be caused by the zipfile,
-    // or were introduced in a minor version of yauzl,
-    // so should be passed to the client rather than thrown.
-    if (!this.isOpen) return callback(new Error('closed'))
-    if (entry.isEncrypted()) {
-      if (options.decrypt !== false)
-        return callback(new Error('entry is encrypted, and options.decrypt !== false'))
-    }
-    // make sure we don't lose the fd before we open the actual read stream
-    this.reader.ref()
-    const buffer = Buffer.allocUnsafe(30)
-    readAndAssertNoEof(
-      this.reader,
-      buffer,
-      0,
-      buffer.length,
-      entry.relativeOffsetOfLocalHeader,
-      (err: Error | null) => {
-        try {
-          if (err) return callback(err)
-          // 0 - Local file header signature = 0x04034b50
-          const signature = buffer.readUInt32LE(0)
-          if (signature !== 0x04034b50) {
-            return callback(
-              new Error(`invalid local file header signature: 0x${signature.toString(16)}`),
-            )
-          }
-          // all this should be redundant
-          // 4 - Version needed to extract (minimum)
-          // 6 - General purpose bit flag
-          // 8 - Compression method
-          // 10 - File last modification time
-          // 12 - File last modification date
-          // 14 - CRC-32
-          // 18 - Compressed size
-          // 22 - Uncompressed size
-          // 26 - File name length (n)
-          const fileNameLength = buffer.readUInt16LE(26)
-          // 28 - Extra field length (m)
-          const extraFieldLength = buffer.readUInt16LE(28)
-          // 30 - File name
-          // 30+n - Extra field
-          const localFileHeaderEnd =
-            entry.relativeOffsetOfLocalHeader + buffer.length + fileNameLength + extraFieldLength
-          let decompress
-          if (entry.compressionMethod === 0) {
-            // 0 - The file is stored (no compression)
-            decompress = false
-          } else if (entry.compressionMethod === 8) {
-            // 8 - The file is Deflated
-            decompress = options.decompress != null ? options.decompress : true
-          } else {
-            return callback(new Error(`unsupported compression method: ${entry.compressionMethod}`))
-          }
-          const fileDataStart = localFileHeaderEnd
-          const fileDataEnd = fileDataStart + entry.compressedSize
-          if (entry.compressedSize !== 0) {
-            // bounds check now, because the read streams will probably not complain loud enough.
-            // since we're dealing with an unsigned offset plus an unsigned size,
-            // we only have 1 thing to check for.
-            if (fileDataEnd > this.fileSize) {
-              return callback(
-                new Error(
-                  `file data overflows file bounds: ${fileDataStart} + ${entry.compressedSize} > ${this.fileSize}`,
-                ),
-              )
-            }
-          }
-          const readStream = this.reader.createReadStream({
-            start: fileDataStart + relativeStart,
-            end: fileDataStart + relativeEnd,
-          })
-          let endpointStream = readStream as Transform
-          if (decompress) {
-            let destroyed = false
-            const inflateFilter = zlib.createInflateRaw()
-            readStream.on('error', (err: Error) => {
-              // setImmediate here because errors can be emitted during the first call to pipe()
-              setImmediate(() => {
-                if (!destroyed) inflateFilter.emit('error', err)
-              })
-            })
-            readStream.pipe(inflateFilter)
-
-            if (this.validateEntrySizes) {
-              endpointStream = new AssertByteCountStream(entry.uncompressedSize)
-              inflateFilter.on('error', (err) => {
-                // forward zlib errors to the client-visible stream
-                setImmediate(() => {
-                  if (!destroyed) endpointStream.emit('error', err)
-                })
-              })
-              inflateFilter.pipe(endpointStream)
-            } else {
-              // the zlib filter is the client-visible stream
-              endpointStream = inflateFilter
-            }
-            // this is part of yauzl's API, so implement this function on the client-visible stream
-            endpointStream.destroy = function () {
-              destroyed = true
-              if (inflateFilter !== endpointStream) inflateFilter.unpipe(endpointStream)
-              readStream.unpipe(inflateFilter)
-              // TODO: the inflateFilter may cause a memory leak. see Issue #27.
-              readStream.destroy()
-
-              return this
-            }
-          }
-          callback(null, endpointStream)
-        } finally {
-          this.reader.unref()
-        }
       },
     )
   }

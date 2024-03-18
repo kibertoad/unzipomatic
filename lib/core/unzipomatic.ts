@@ -13,13 +13,12 @@ export type UnzipOptions = {
 
 export type SourceType = string | File | Blob | Buffer | Readable
 
-// ToDo
-export type FileGenerator = AsyncGenerator<Entry, void, void>
+export type FileGenerator = AsyncGenerator<Entry, undefined, void>
 
 export async function unzipToFilesystem(
   source: SourceType,
   targetDir: string,
-  options: UnzipOptions,
+  options?: UnzipOptions,
 ): Promise<void> {
   if (!Buffer.isBuffer(source)) {
     return Promise.reject(new Error('Only buffer is currently supported'))
@@ -27,7 +26,7 @@ export async function unzipToFilesystem(
 
   const fileWrites: Promise<void>[] = [] // Array to track file write promises
 
-  const zipFileOrError = await fromBufferAsync(source, { lazyEntries: true }).catch(
+  const zipFileOrError = await fromBufferAsync(source, { ...options, lazyEntries: true }).catch(
     (err: Error) => err,
   )
 
@@ -38,10 +37,10 @@ export async function unzipToFilesystem(
   const zipfile = zipFileOrError
 
   await new Promise((operationResolve, operationReject) => {
-    zipfile.on('entry', (entry) => {
-      if (/\/$/.test(entry.fileName)) {
+    zipfile.on('entry', (entry: Entry) => {
+      if (entry.isDirectory()) {
         // Directory: create if doesn't exist
-        const directoryPath = join(targetDir, entry.fileName)
+        const directoryPath = join(targetDir, entry.fileName.toString())
         void mkdir(directoryPath, { recursive: true })
           .then(() => {
             zipfile.readEntry()
@@ -51,22 +50,14 @@ export async function unzipToFilesystem(
           })
       } else {
         // File: extract
-        zipfile.openReadStream(
-          entry,
-          { decrypt: entry.isEncrypted() ? false : undefined, ...options },
-          (err, readStream) => {
-            if (err) {
-              operationReject(err)
-              return
-            }
-            if (!readStream) {
-              operationReject(new Error('No readstream'))
-              return
-            }
+        entry
+          .getStream()
+          .then((readStream) => {
+            const filePath = join(targetDir, entry.fileName.toString())
 
-            const filePath = join(targetDir, entry.fileName)
             fileWrites.push(
               (async () => {
+                // perf(h4ad): Only run this once per directory
                 await mkdir(dirname(filePath), { recursive: true })
                 await pipeline(readStream, createWriteStream(filePath)) // Use pipeline for proper error handling
               })(),
@@ -75,8 +66,8 @@ export async function unzipToFilesystem(
             readStream.on('end', () => {
               zipfile.readEntry()
             })
-          },
-        )
+          })
+          .catch(operationReject)
       }
     })
 
@@ -102,22 +93,25 @@ export async function unzipToFilesystem(
 /**
  * Used to iterate over multiple files in an archive.
  *
- * In case you want to stop the iteration in the middle, you MUST call `generator.return()` to dispose the resources,
+ * In case you want to stop the iteration in the middle, you MUST call `generator.return(undefined)` to dispose the resources,
  * otherwise, the generator will keep the resources open and you will have a memory leak.
+ *
+ * To read the content of the file, you can use `entry.getBuffer()` or `entry.getStream()`.
+ * These methods can only be called while iterating over the generator, and they will throw an error if called after the generator is done.
+ *
+ * @throws {Error} If you try to dispose/close the generator while there are open streams reading the zip content.
  */
-export async function* unzipToGenerator(source: SourceType, options: UnzipOptions): FileGenerator {
+export async function* unzipToGenerator(source: SourceType, options?: UnzipOptions): FileGenerator {
   if (!Buffer.isBuffer(source)) {
-    yield Promise.reject(new Error('Only buffer is currently supported'))
-    return
+    throw new Error('Only buffer is currently supported')
   }
 
-  const zipFileOrError = await fromBufferAsync(source, { lazyEntries: true, ...options }).catch(
+  const zipFileOrError = await fromBufferAsync(source, { ...options, lazyEntries: true }).catch(
     (err: Error) => err,
   )
 
   if (zipFileOrError instanceof Error) {
-    yield Promise.reject(zipFileOrError)
-    return
+    throw zipFileOrError
   }
 
   const zipfile = zipFileOrError
@@ -136,6 +130,8 @@ export async function* unzipToGenerator(source: SourceType, options: UnzipOption
     resolveNextEntry({ error })
   })
 
+  let alreadyThrowRefCountError = false
+
   try {
     do {
       const waitResolve = new Promise<ResolvedData | undefined>((resolve) => {
@@ -146,6 +142,15 @@ export async function* unzipToGenerator(source: SourceType, options: UnzipOption
       const resolvedData = await waitResolve
 
       if (!resolvedData) {
+        // is normal to have refCount == 1 because the zipFile holds a reference to the reader
+        if (zipfile.reader.refCount > 1) {
+          alreadyThrowRefCountError = true
+
+          throw new Error(
+            'You have opened streams reading the zip content while the generator was finished.',
+          )
+        }
+
         break
       }
 
@@ -158,8 +163,19 @@ export async function* unzipToGenerator(source: SourceType, options: UnzipOption
       break
     } while (true)
   } finally {
+    const refCount = zipfile.reader.refCount
+
     zipfile.removeAllListeners()
     zipfile.close()
+
+    // is normal to have refCount == 1 because the zipFile holds a reference to the reader
+    if (refCount > 1 && !alreadyThrowRefCountError) {
+      yield Promise.reject(
+        new Error(
+          'You have open streams reading the zip content after the generator was disposed.',
+        ),
+      )
+    }
   }
 }
 

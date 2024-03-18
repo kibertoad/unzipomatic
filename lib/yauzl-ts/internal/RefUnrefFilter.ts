@@ -14,6 +14,10 @@ export class RefUnrefFilter<TReader extends IRandomAccessReader> extends PassThr
     this.unreffedYet = false
   }
 
+  get refCount(): number {
+    return this.context.refCount;
+  }
+
   _flush(cb: () => void) {
     this.unref()
     cb()

@@ -70,26 +70,24 @@ async function ensureExpectedGeneratorExist(
   const results: Entry[] = []
 
   for await (const entry of generator) {
+    const testCaseExpectedFile = testCase.expect.files.find((f) => f.name === entry.fileName)
+
+    expect(testCaseExpectedFile).not.toBeUndefined()
+    expect(testCaseExpectedFile!.name).toBe(entry.fileName)
+
+    if (testCaseExpectedFile?.type === 'file') {
+      expect(
+        testCaseExpectedFile.encrypted ? 0 : Buffer.byteLength(testCaseExpectedFile.content),
+      ).toStrictEqual(entry.isEncrypted() ? 0 : entry.uncompressedSize)
+      expect(testCaseExpectedFile.content).toStrictEqual(
+        await entry.getBuffer().then((b) => b.toString('utf8')),
+      )
+    }
+
     results.push(entry)
   }
 
   expect(results.length).toBe(testCase.expect.files.length)
-
-  expect(
-    results.map((r) => [
-      r.fileName,
-      r.fileName.toString().endsWith('/') ? 'directory' : 'file',
-      r.isEncrypted() ? 0 : r.uncompressedSize,
-    ]),
-  ).to.have.deep.members(
-    testCase.expect.files.map((f) => [
-      f.name,
-      f.type,
-      f.type === 'file' ? (f.encrypted ? 0 : Buffer.byteLength(f.content)) : 0,
-    ]),
-  )
-
-  // TODO: Validate the content of the files
 }
 
 async function readUntilError(generator: FileGenerator): Promise<Error | null> {
@@ -128,9 +126,7 @@ describe('unzipomatic', () => {
       itFn(`[${category}] Unzip ${testCase.name}`, async () => {
         const input = await getTestFileAsBuffer(testCase.path)
 
-        const result = await unzipToFilesystem(input, targetDir, testCase.options || {}).catch(
-          (err: Error) => err,
-        )
+        const result = await unzipToFilesystem(input, targetDir).catch((err: Error) => err)
 
         if (testCase.expect.success) {
           ensureExpectedFilesExist(testCase, targetDir)
@@ -161,7 +157,7 @@ describe('unzipomatic', () => {
 
         const input = await getTestFileAsBuffer(testCase.path)
 
-        const unzipGenerator = unzipToGenerator(input, testCase.options || {})
+        const unzipGenerator = unzipToGenerator(input)
 
         if (testCase.expect.success) {
           await ensureExpectedGeneratorExist(testCase, unzipGenerator)
@@ -187,13 +183,67 @@ describe('unzipomatic', () => {
       expect(successTestCase).not.toBeUndefined()
 
       const input = await getTestFileAsBuffer(successTestCase!.path)
-      const unzipGenerator = unzipToGenerator(input, successTestCase!.options || {})
+      const unzipGenerator = unzipToGenerator(input)
 
       const result = await unzipGenerator.next()
       expect(result.done).toBe(false)
 
-      const resultDone = await unzipGenerator.return!()
+      const resultDone = await unzipGenerator.return!(undefined)
       expect(resultDone.done).toBe(true)
+
+      expect(closeZipFile).toHaveBeenCalledOnce()
+    })
+
+    it('throw error if try dispose generator while reading the zip content', async () => {
+      const closeZipFile = vitest.spyOn(ZipFile.prototype, 'close')
+
+      const successTestCase = testCases.find(
+        (t) => t.expect.success === true && t.expect.files.length > 0,
+      )
+
+      expect(successTestCase).not.toBeUndefined()
+
+      const input = await getTestFileAsBuffer(successTestCase!.path)
+      const unzipGenerator = unzipToGenerator(input)
+
+      const firstZipEntry = await unzipGenerator.next()
+      expect(firstZipEntry.done).toBe(false)
+      expect(firstZipEntry.value!.isDirectory()).toBe(false)
+
+      const [errorPromise, contentResult] = await Promise.allSettled([
+        unzipGenerator.return!(undefined),
+        firstZipEntry.value!.getBuffer(),
+      ])
+
+      expect(errorPromise.status).toBe('rejected')
+      expect(errorPromise.status === 'rejected' && (errorPromise.reason as Error).message).toBe(
+        'You have open streams reading the zip content after the generator was disposed.',
+      )
+
+      expect(closeZipFile).toHaveBeenCalledOnce()
+    })
+
+    it('throw error if try read entry after generator is disposed', async () => {
+      const closeZipFile = vitest.spyOn(ZipFile.prototype, 'close')
+
+      const successTestCase = testCases.find(
+        (t) => t.expect.success === true && t.expect.files.length > 0,
+      )
+
+      expect(successTestCase).not.toBeUndefined()
+
+      const input = await getTestFileAsBuffer(successTestCase!.path)
+      const unzipGenerator = unzipToGenerator(input)
+
+      const firstZipEntry = await unzipGenerator.next()
+      expect(firstZipEntry.done).toBe(false)
+      expect(firstZipEntry.value!.isDirectory()).toBe(false)
+
+      await unzipGenerator.return!(undefined)
+
+      await expect(firstZipEntry.value!.getBuffer()).rejects.toThrowError(
+        'The content of the file can only be read while the zip file is open.',
+      )
 
       expect(closeZipFile).toHaveBeenCalledOnce()
     })
