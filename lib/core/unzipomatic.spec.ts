@@ -5,8 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vitest } from 'vitest'
 
 import { getTestFileAsBuffer } from '../../test/utils/TestFileSource'
 
-import { readFileSync } from 'fs'
-import { existsSync, statSync } from 'node:fs'
+import { existsSync, readFileSync, statSync } from 'node:fs'
 import { type TestCase, testCases } from '../../test/test-cases'
 import type { Entry } from '../yauzl-ts/Entry'
 import { ZipFile } from '../yauzl-ts/ZipFile'
