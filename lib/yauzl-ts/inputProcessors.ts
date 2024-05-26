@@ -1,9 +1,9 @@
-import fs from 'fs'
+import fs from 'node:fs'
 
+import { createFromBuffer, createFromFd } from 'better-fd-slicer'
 import type { IRandomAccessReader } from './RandomAccessReader'
 import { ZipFile } from './ZipFile'
 import { decodeBuffer, defaultCallback, readAndAssertNoEof, readUInt64LE } from './internal/utils'
-import { createFromBuffer, createFromFd } from 'better-fd-slicer'
 
 export interface OpenOptions {
   autoClose?: boolean
