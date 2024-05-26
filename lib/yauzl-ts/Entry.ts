@@ -1,5 +1,5 @@
 import { dosDateTimeToDate, readAndAssertNoEofAsync } from './internal/utils'
-import type { Transform } from 'stream'
+import type { Transform } from 'node:stream'
 import zlib from 'node:zlib'
 import { AssertByteCountStream } from './internal/AssertByteCountStream'
 import { ZipFile } from './ZipFile'
