@@ -2,7 +2,7 @@ import EventEmitter from 'node:events'
 
 import crc32 from 'buffer-crc32'
 
-import { Entry } from './Entry'
+import { Entry, EntryWithContent, getBufferFromEntry } from './Entry'
 import type { IRandomAccessReader } from './RandomAccessReader'
 import { decodeBuffer, emitError, emitErrorAndAutoClose, readAndAssertNoEof, readUInt64LE } from './internal/utils'
 import { validateFileName } from './validations'
@@ -16,7 +16,7 @@ export class ZipFile<TReader extends IRandomAccessReader = IRandomAccessReader> 
   public readonly comment: string | Buffer
   public readonly decodeStrings: boolean
   public readonly validateEntrySizes: boolean
-  public readonly lazyEntries: boolean
+  public readonly withContent: boolean
   public readonly entryCount: number
   public readonly strictFileNames: boolean
 
@@ -30,10 +30,10 @@ export class ZipFile<TReader extends IRandomAccessReader = IRandomAccessReader> 
     entryCount: number,
     comment: string | Buffer,
     autoClose: boolean,
-    lazyEntries: boolean,
     decodeStrings: boolean,
     validateEntrySizes: boolean,
     strictFileNames: boolean,
+    withContent: boolean
   ) {
     super()
 
@@ -52,18 +52,15 @@ export class ZipFile<TReader extends IRandomAccessReader = IRandomAccessReader> 
     this.comment = comment
     this.#entriesRead = 0
     this.autoClose = autoClose
-    this.lazyEntries = lazyEntries
     this.decodeStrings = decodeStrings
     this.validateEntrySizes = validateEntrySizes
     this.strictFileNames = strictFileNames
+    this.withContent = withContent
     this.isOpen = true
     this.emittedError = false
-
-    if (!this.lazyEntries) this._readEntry()
   }
 
   readEntry() {
-    if (!this.lazyEntries) throw new Error('readEntry() called without lazyEntries:true')
     this._readEntry()
   }
 
@@ -91,7 +88,7 @@ export class ZipFile<TReader extends IRandomAccessReader = IRandomAccessReader> 
         if (err) return emitErrorAndAutoClose(this, err)
         if (this.emittedError) return
 
-        const entry = new Entry(this)
+        const entry = this.withContent ? new EntryWithContent() : new Entry(this)
         // 0 - Central directory file header signature
         const signature = buffer.readUInt32LE(0)
 
@@ -318,9 +315,17 @@ export class ZipFile<TReader extends IRandomAccessReader = IRandomAccessReader> 
               if (errorMessage != null) return emitErrorAndAutoClose(this, new Error(errorMessage))
             }
 
-            this.emit('entry', entry)
+            if (entry instanceof Entry) {
+              this.emit('entry', entry)
+            } else {
+              getBufferFromEntry(this, entry).then(buffer => {
+                entry.content = buffer
 
-            if (!this.lazyEntries) this._readEntry()
+                this.emit('entry', entry)
+              }).catch(error => {
+                emitErrorAndAutoClose(this, error)
+              })
+            }
           },
         )
       },
@@ -329,6 +334,8 @@ export class ZipFile<TReader extends IRandomAccessReader = IRandomAccessReader> 
 
   close() {
     if (!this.isOpen) return
+
+    this.removeAllListeners()
     this.isOpen = false
     this.reader.unref()
   }
