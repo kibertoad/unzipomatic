@@ -62,7 +62,7 @@
     "@types/node": "22.7.4",
     "@vitest/coverage-v8": "1.3.1",
     "@vitest/ui": "1.3.1",
-    "bl": "6.0.15",
+    "bl": "6.0.16",
     "cli-testlab": "4.0.0",
     "lefthook": "1.7.17",
     "publint": "0.2.11",
