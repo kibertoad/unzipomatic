@@ -65,7 +65,7 @@
     "bl": "6.0.16",
     "cli-testlab": "4.0.0",
     "lefthook": "1.8.1",
-    "publint": "0.2.11",
+    "publint": "0.2.12",
     "tslib": "2.8.0",
     "tsup": "8.3.5",
     "typescript": "5.5.4",
