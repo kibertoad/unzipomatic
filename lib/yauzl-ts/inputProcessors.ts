@@ -8,9 +8,11 @@ import { decodeBuffer, defaultCallback, readAndAssertNoEof, readUInt64LE } from 
 export interface OpenOptions {
   autoClose?: boolean
   /**
+   * If true, the content of the files will be read and stored in memory.
+   *
    * @default false
    */
-  lazyEntries?: boolean
+  withContent?: boolean
   /**
    * @default true
    */
@@ -52,10 +54,10 @@ function parseOptions(
   if (typeof optionsOrCallback === 'function') {
     return [
       {
-        lazyEntries: false,
         decodeStrings: true,
         validateEntrySizes: true,
         strictFileNames: false,
+        withContent: false,
       },
       optionsOrCallback,
     ]
@@ -63,10 +65,10 @@ function parseOptions(
 
   const options = optionsOrCallback || {}
 
-  if (options.lazyEntries == null) options.lazyEntries = false
   if (options.decodeStrings == null) options.decodeStrings = true
   if (options.validateEntrySizes == null) options.validateEntrySizes = true
   if (options.strictFileNames == null) options.strictFileNames = false
+  if (options.withContent == null) options.withContent = false
 
   // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
   return [options, callbackOptional || defaultCallback]
@@ -230,10 +232,10 @@ export function fromRandomAccessReader<TReader extends IRandomAccessReader>(
             entryCount,
             comment,
             !!options.autoClose,
-            !!options.lazyEntries,
             decodeStrings,
             !!options.validateEntrySizes,
             !!options.strictFileNames,
+            !!options.withContent,
           ),
         )
       }
@@ -299,10 +301,10 @@ export function fromRandomAccessReader<TReader extends IRandomAccessReader>(
                   entryCount,
                   comment,
                   !!options.autoClose,
-                  !!options.lazyEntries,
                   decodeStrings,
                   !!options.validateEntrySizes,
                   !!options.strictFileNames,
+                  !!options.withContent,
                 ),
               )
             },
