@@ -1,24 +1,30 @@
 import { createWriteStream } from 'node:fs'
 import { mkdir } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import type { Readable } from 'node:stream'
+import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 
-import type { Entry } from '../yauzl-ts/Entry'
+import type { Entry, EntryWithContent } from '../yauzl-ts/Entry'
 import { fromBufferAsync } from '../yauzl-ts/inputProcessors'
 
 export type UnzipOptions = {
-  // ToDo, but I would start with making yauzl defaults non-configureable and see if there is demand for flexibility there
+  /**
+   * If true, the content of the files will be read and stored in memory.
+   * If true, the `EntryWithContent` class will be returned instead of `Entry`.
+   *
+   * @default false
+   */
+  withContent?: boolean
 }
 
 export type SourceType = string | File | Blob | Buffer | Readable
 
-export type FileGenerator = AsyncGenerator<Entry, undefined, void>
+export type FileGenerator<TEntry> = AsyncGenerator<TEntry, undefined, void>
 
 export async function unzipToFilesystem(
   source: SourceType,
   targetDir: string,
-  options?: UnzipOptions,
+  options?: Omit<UnzipOptions, 'withContent'>,
 ): Promise<void> {
   if (!Buffer.isBuffer(source)) {
     return Promise.reject(new Error('Only buffer is currently supported'))
@@ -26,7 +32,7 @@ export async function unzipToFilesystem(
 
   const fileWrites: Promise<void>[] = [] // Array to track file write promises
 
-  const zipFileOrError = await fromBufferAsync(source, { ...options, lazyEntries: true }).catch(
+  const zipFileOrError = await fromBufferAsync(source, { ...options, withContent: false }).catch(
     (err: Error) => err,
   )
 
@@ -101,21 +107,22 @@ export async function unzipToFilesystem(
  *
  * @throws {Error} If you try to dispose/close the generator while there are open streams reading the zip content.
  */
-export async function* unzipToGenerator(source: SourceType, options?: UnzipOptions): FileGenerator {
+export async function* unzipToGenerator<TOptions extends UnzipOptions>(
+  source: SourceType,
+  options?: TOptions,
+): FileGenerator<TOptions['withContent'] extends true ? EntryWithContent : Entry> {
   if (!Buffer.isBuffer(source)) {
     throw new Error('Only buffer is currently supported')
   }
 
-  const zipFileOrError = await fromBufferAsync(source, { ...options, lazyEntries: true }).catch(
-    (err: Error) => err,
-  )
+  const zipFileOrError = await fromBufferAsync(source, { ...options }).catch((err: Error) => err)
 
   if (zipFileOrError instanceof Error) {
     throw zipFileOrError
   }
 
   const zipfile = zipFileOrError
-  type ResolvedData = { error?: Error; entry?: Entry }
+  type ResolvedData = { error?: Error; entry?: Entry | EntryWithContent }
   let resolveNextEntry: (data?: ResolvedData) => void
 
   zipfile.on('entry', (entry) => {
@@ -155,6 +162,7 @@ export async function* unzipToGenerator(source: SourceType, options?: UnzipOptio
       }
 
       if (resolvedData.entry) {
+        // @ts-ignore ignore because the entry can be Entry or EntryWithContent
         yield resolvedData.entry
         continue
       }
@@ -165,7 +173,6 @@ export async function* unzipToGenerator(source: SourceType, options?: UnzipOptio
   } finally {
     const refCount = zipfile.reader.refCount
 
-    zipfile.removeAllListeners()
     zipfile.close()
 
     // is normal to have refCount == 1 because the zipFile holds a reference to the reader
@@ -180,10 +187,73 @@ export async function* unzipToGenerator(source: SourceType, options?: UnzipOptio
 }
 
 /**
- * Used to extract a single-file archive
+ * Used to iterate over multiple files in an archive.
+ *
+ * If you want the content of the file, you can set `options.withContent=true`.
+ * If you only want to see what files are in the archive, set `options.withContent=false`.
+ *
+ * Be careful with the `withContent=false` when calling `entry.getStream` and `entry.getBuffer` because they will throw an error for the last entry
+ * in the readable stream because it will close the reader before you can read the content.
  */
-export function unzipToReadable(source: SourceType, options: UnzipOptions): Promise<Readable> {
-  throw new Error('Not implemented')
+export async function unzipToReadable(
+  source: SourceType,
+  options: UnzipOptions,
+): Promise<Readable> {
+  if (!Buffer.isBuffer(source)) {
+    throw new Error('Only buffer is currently supported')
+  }
+
+  const zipFileOrError = await fromBufferAsync(source, { ...options }).catch((err: Error) => err)
+
+  if (zipFileOrError instanceof Error) {
+    throw zipFileOrError
+  }
+
+  const zipfile = zipFileOrError
+
+  const readable = new Readable({
+    objectMode: true,
+    autoDestroy: true,
+    construct(callback: (error?: Error | null) => void) {
+      zipfile.on('entry', (entry) => {
+        this.push(entry)
+      })
+
+      zipfile.on('end', () => {
+        // is normal to have refCount == 1 because the zipFile holds a reference to the reader
+        if (zipfile.reader.refCount > 1) {
+          this.destroy(
+            new Error(
+              'You have opened streams reading the zip content while the generator was finished.',
+            ),
+          )
+        } else {
+          this.push(null)
+        }
+      })
+
+      zipfile.on('error', (error) => {
+        this.destroy(error)
+      })
+
+      callback()
+    },
+    read() {
+      // start reading
+      zipfile.readEntry()
+    },
+    destroy(error, callback) {
+      zipfile.close()
+
+      if (error) {
+        callback(error)
+      } else {
+        callback()
+      }
+    },
+  })
+
+  return readable
 }
 
 /**
