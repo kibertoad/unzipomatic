@@ -6,10 +6,16 @@ import { afterEach, beforeEach, describe, expect, it, vitest } from 'vitest'
 import { getTestFileAsBuffer } from '../../test/utils/TestFileSource'
 
 import { existsSync, readFileSync, statSync } from 'node:fs'
+import type { Readable } from 'node:stream'
 import { type TestCase, testCases } from '../../test/test-cases'
-import type { Entry } from '../yauzl-ts/Entry'
+import type { Entry, EntryWithContent } from '../yauzl-ts/Entry'
 import { ZipFile } from '../yauzl-ts/ZipFile'
-import { type FileGenerator, unzipToFilesystem, unzipToGenerator } from './unzipomatic'
+import {
+  type FileGenerator,
+  unzipToFilesystem,
+  unzipToGenerator,
+  unzipToReadable,
+} from './unzipomatic'
 
 function ensureExpectedFilesExist(testCase: TestCase, targetDir: string): void {
   if (testCase.expect.success !== true) {
@@ -53,7 +59,7 @@ function ensureExpectedFilesExist(testCase: TestCase, targetDir: string): void {
 
 async function ensureExpectedGeneratorExist(
   testCase: TestCase,
-  generator: FileGenerator,
+  generator: FileGenerator<EntryWithContent | Entry>,
 ): Promise<void> {
   if (testCase.expect.success !== true) {
     throw new Error('ensureExpectedFilesExist should only be called for successful test cases')
@@ -66,7 +72,7 @@ async function ensureExpectedGeneratorExist(
     expect(result.value).toBeUndefined()
   }
 
-  const results: Entry[] = []
+  const results: Array<Entry | EntryWithContent> = []
 
   for await (const entry of generator) {
     const testCaseExpectedFile = testCase.expect.files.find((f) => f.name === entry.fileName)
@@ -79,7 +85,9 @@ async function ensureExpectedGeneratorExist(
         testCaseExpectedFile.encrypted ? 0 : Buffer.byteLength(testCaseExpectedFile.content),
       ).toStrictEqual(entry.isEncrypted() ? 0 : entry.uncompressedSize)
       expect(testCaseExpectedFile.content).toStrictEqual(
-        await entry.getBuffer().then((b) => b.toString('utf8')),
+        'content' in entry
+          ? entry.content.toString('utf8')
+          : await entry.getBuffer().then((b) => b.toString('utf8')),
       )
     }
 
@@ -89,12 +97,66 @@ async function ensureExpectedGeneratorExist(
   expect(results.length).toBe(testCase.expect.files.length)
 }
 
-async function readUntilError(generator: FileGenerator): Promise<Error | null> {
+async function ensureExpectedResultList(
+  testCase: TestCase,
+  entries: Array<Entry | EntryWithContent>,
+): Promise<void> {
+  if (testCase.expect.success !== true) {
+    throw new Error('ensureExpectedFilesExist should only be called for successful test cases')
+  }
+
+  if (testCase.expect.success && testCase.expect.files.length === 0) {
+    expect(entries.length).toBe(0)
+    return
+  }
+
+  expect(entries.length).toBe(testCase.expect.files.length)
+
+  for (const entry of entries) {
+    const testCaseExpectedFile = testCase.expect.files.find((f) => f.name === entry.fileName)
+
+    expect(testCaseExpectedFile).not.toBeUndefined()
+    expect(testCaseExpectedFile!.name).toBe(entry.fileName)
+
+    if (testCaseExpectedFile?.type === 'file') {
+      expect(
+        testCaseExpectedFile.encrypted ? 0 : Buffer.byteLength(testCaseExpectedFile.content),
+      ).toStrictEqual(entry.isEncrypted() ? 0 : entry.uncompressedSize)
+
+      if ('content' in entry) {
+        expect(testCaseExpectedFile.content).toStrictEqual(entry.content.toString('utf8'))
+      } else {
+        expect(() => entry.getBuffer()).rejects.toThrowError(
+          'The content of the file can only be read while the zip file is open.',
+        )
+      }
+    }
+  }
+}
+async function readUntilError(
+  generator: FileGenerator<EntryWithContent | Entry>,
+): Promise<Error | null> {
   try {
     for await (const _entry of generator) {
     }
 
     return null
+  } catch (e) {
+    return e as Error
+  }
+}
+
+async function readReadableUntilError(
+  readable: Readable,
+): Promise<Error | Array<Entry | EntryWithContent>> {
+  try {
+    const results: Array<Entry | EntryWithContent> = []
+
+    for await (const entry of readable) {
+      results.push(entry)
+    }
+
+    return results
   } catch (e) {
     return e as Error
   }
@@ -151,25 +213,29 @@ describe('unzipomatic', () => {
             ? 'flaky'
             : 'err'
 
-      itFn(`[${category}] Unzip ${testCase.name}`, async () => {
-        const closeZipFile = vitest.spyOn(ZipFile.prototype, 'close')
+      for (const withContent of [true, false]) {
+        itFn(`[${category}] Unzip ${testCase.name} withContent=${withContent}`, async () => {
+          const closeZipFile = vitest.spyOn(ZipFile.prototype, 'close')
 
-        const input = await getTestFileAsBuffer(testCase.path)
+          const input = await getTestFileAsBuffer(testCase.path)
 
-        const unzipGenerator = unzipToGenerator(input)
+          const unzipGenerator = unzipToGenerator(input, {
+            withContent,
+          })
 
-        if (testCase.expect.success) {
-          await ensureExpectedGeneratorExist(testCase, unzipGenerator)
-        } else {
-          const result = await readUntilError(unzipGenerator)
+          if (testCase.expect.success) {
+            await ensureExpectedGeneratorExist(testCase, unzipGenerator)
+          } else {
+            const result = await readUntilError(unzipGenerator)
 
-          expect(result).toBeInstanceOf(Error)
-          expect(result!.message).toMatchObject(testCase.expect.error!)
-        }
+            expect(result).toBeInstanceOf(Error)
+            expect(result!.message).toMatchObject(testCase.expect.error!)
+          }
 
-        if (testCase.expect.success || testCase.expect.errorWhile !== 'create')
-          expect(closeZipFile).toHaveBeenCalledOnce()
-      })
+          if (testCase.expect.success || testCase.expect.errorWhile !== 'create')
+            expect(closeZipFile).toHaveBeenCalledOnce()
+        })
+      }
     }
 
     it('should clean resources if stopped in the middle', async () => {
@@ -246,5 +312,42 @@ describe('unzipomatic', () => {
 
       expect(closeZipFile).toHaveBeenCalledOnce()
     })
+  })
+
+  describe('unzipToReadable', () => {
+    for (const testCase of testCases) {
+      const skipIfNotUnzip =
+        testCase.expect.success === false && testCase.expect.errorWhile !== 'unzip'
+      const itFn = testCase.expect.success === 'flaky' || skipIfNotUnzip ? it.skip : it
+      const category =
+        testCase.expect.success === true
+          ? 'ok'
+          : testCase.expect.success === 'flaky'
+            ? 'flaky'
+            : 'err'
+
+      for (const withContent of [true, false]) {
+        itFn(`[${category}] Unzip ${testCase.name} withContent=${withContent}`, async () => {
+          const closeZipFile = vitest.spyOn(ZipFile.prototype, 'close')
+
+          const input = await getTestFileAsBuffer(testCase.path)
+
+          const unzipReadable = await unzipToReadable(input, {
+            withContent,
+          })
+          const result = await readReadableUntilError(unzipReadable)
+
+          if (testCase.expect.success) {
+            await ensureExpectedResultList(testCase, result as Array<Entry | EntryWithContent>)
+          } else {
+            expect(result).toBeInstanceOf(Error)
+            expect((result as Error).message).toMatchObject(testCase.expect.error!)
+          }
+
+          if (testCase.expect.success || testCase.expect.errorWhile !== 'create')
+            expect(closeZipFile).toHaveBeenCalledOnce()
+        })
+      }
+    }
   })
 })
