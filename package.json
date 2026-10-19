@@ -61,7 +61,7 @@
     "@types/buffer-crc32": "1.0.0",
     "@types/node": "25.9.3",
     "@vitest/coverage-v8": "1.3.1",
-    "@vitest/ui": "1.3.1",
+    "@vitest/ui": "5.0.5",
     "bl": "7.0.12",
     "cli-testlab": "7.0.0",
     "lefthook": "2.2.2",
